@@ -37,7 +37,7 @@ export function humanizeError(e: unknown): string {
   if (err.code === '23502' || m.includes('null value')) return 'Falta completar un dato obligatorio.';
 
   // Mensajes propios de las funciones de la base (ya están en español)
-  if (/^(sin acceso|solo un administrador|la empresa debe|presupuesto inexistente|ítem inexistente|evento no permitido|no autenticado)/i.test(msg)) {
+  if (/^(sin acceso|solo un administrador|la empresa debe|presupuesto inexistente|ítem inexistente|evento no permitido|no autenticado|llegaste al límite|el anticipo no puede|plan no válido|indicá una fecha|la referencia|empresa inexistente)/i.test(msg)) {
     return msg;
   }
   if (msg.includes('Storage') || m.includes('mime type') || m.includes('exceeded the maximum')) {

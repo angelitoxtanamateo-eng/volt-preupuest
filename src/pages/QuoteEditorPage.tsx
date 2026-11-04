@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { getQuoteFull, listCatalog, listClients, saveQuote } from '../lib/api';
+import { getQuoteFull, listCatalog, listClients, myPlanUsage, saveQuote } from '../lib/api';
+import { usageState } from '../lib/plans';
 import { addDays, todayIso } from '../lib/dates';
 import { humanizeError } from '../lib/errors';
 import { formatMoney, lineTotalCents, fromCents, parseNumberInput } from '../lib/money';
@@ -54,6 +55,8 @@ export function QuoteEditorPage() {
   const [warnings, setWarnings] = useState<string[]>([]);
   const speech = useSpeech((t) => setDictation((d) => (d ? `${d}, ${t}` : t)));
 
+  const planQ = useQuery({ queryKey: ['plan', cid], queryFn: () => myPlanUsage(cid), enabled: !editing });
+  const limitReached = !editing && planQ.data ? usageState(planQ.data).atLimit : false;
   const clients = useQuery({ queryKey: ['clients', cid], queryFn: () => listClients(cid) });
   const catalog = useQuery({ queryKey: ['catalog', cid], queryFn: () => listCatalog(cid) });
   const existing = useQuery({ queryKey: ['quote', id], queryFn: () => getQuoteFull(id as string), enabled: editing });
@@ -120,6 +123,7 @@ export function QuoteEditorPage() {
     onSuccess: (qid) => {
       void qc.invalidateQueries({ queryKey: ['quotes'] });
       void qc.invalidateQueries({ queryKey: ['stats'] });
+      void qc.invalidateQueries({ queryKey: ['plan'] });
       void qc.invalidateQueries({ queryKey: ['quote', qid] });
       toast('Presupuesto guardado');
       nav(`/presupuestos/${qid}`);
@@ -133,6 +137,13 @@ export function QuoteEditorPage() {
   return (
     <>
       <PageHeader title={editing ? 'Editar presupuesto' : 'Nuevo presupuesto'} subtitle={editing ? undefined : 'Nada se guarda hasta que toques "Guardar"'} actions={<Link className="btn btn-ghost" to={editing ? `/presupuestos/${id}` : '/presupuestos'}>Cancelar</Link>} />
+      {limitReached && (
+        <div className="mb-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-red-800" role="alert">
+          <p className="font-bold">Llegaste al límite de presupuestos de este mes.</p>
+          <p className="text-sm">Para crear uno nuevo, elegí un plan superior.</p>
+          <Link className="btn btn-accent mt-3" to="/plan">Ver planes</Link>
+        </div>
+      )}
 
       {/* ---------- Dictado ---------- */}
       <section className="card mb-5 border-volt-300 bg-volt-50 p-4">
@@ -251,7 +262,7 @@ export function QuoteEditorPage() {
       </section>
 
       <div className="sticky bottom-28 z-20 flex justify-end md:bottom-4">
-        <button className="btn btn-primary shadow-lg" disabled={save.isPending || !loaded} onClick={() => save.mutate()}>{save.isPending ? 'Guardando…' : 'Guardar presupuesto'}</button>
+        <button className="btn btn-primary shadow-lg" disabled={save.isPending || !loaded || limitReached} onClick={() => save.mutate()}>{save.isPending ? 'Guardando…' : 'Guardar presupuesto'}</button>
       </div>
     </>
   );

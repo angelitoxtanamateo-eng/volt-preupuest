@@ -74,6 +74,7 @@ export function QuoteDetailPage() {
     onSuccess: (newId) => {
       void qc.invalidateQueries({ queryKey: ['quotes'] });
       void qc.invalidateQueries({ queryKey: ['stats'] });
+      void qc.invalidateQueries({ queryKey: ['plan'] });
       toast('Presupuesto duplicado como borrador');
       nav(`/presupuestos/${newId}`);
     },

@@ -16,7 +16,7 @@ Marca VOLT · React + TypeScript · Supabase (Postgres, Auth, Storage) · Netlif
 
 ## Estado y qué falta verificar (leer antes de vender)
 
-Probado de verdad en esta entrega: base de datos y seguridad (97 pruebas sobre PostgreSQL), lógica de negocio, parser de dictado, PDF, backup y restauración.
+Probado de verdad en esta entrega: base de datos y seguridad (140 pruebas sobre PostgreSQL), lógica de negocio, parser de dictado, PDF, backup y restauración.
 
 **Sin compilar ni ejecutar todavía: la interfaz React** (`src/app`, `src/pages`, `src/components`). Se escribió en un entorno sin acceso al registro de npm, así que solo se pudo chequear sintaxis y tipos con las librerías externas simuladas. Es esperable que `npm run build` muestre algún ajuste menor. Tampoco se probó contra un proyecto Supabase real ni en un celular. Primeros pasos: `npm install && npm run typecheck && npm run build`, y recorrer el flujo completo (registro → empresa → cliente → presupuesto por voz → PDF → WhatsApp) antes de entregarlo a un cliente.
 
@@ -28,7 +28,7 @@ cp .env.example .env.local      # completar con TU proyecto Supabase
 npm run dev
 ```
 
-1. Creá un proyecto en Supabase y aplicá `supabase/migrations/001` a `005` en orden, cada archivo en su propia ejecución (SQL Editor). Detalle en [DEPLOY.md](DEPLOY.md).
+1. Creá un proyecto en Supabase y aplicá `supabase/migrations/001` a `006` en orden, cada archivo en su propia ejecución (SQL Editor). Detalle en [DEPLOY.md](DEPLOY.md).
 2. En `.env.local`: `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` (clave **anon**). La app se niega a arrancar si detecta una clave `service_role`.
 
 ## Comandos

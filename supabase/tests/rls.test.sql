@@ -77,6 +77,10 @@ select tests.ok('alice quedó como admin de su empresa', public.is_admin(:'acme'
 select tests.ok('alice NO es miembro de Beta', not public.is_member(:'beta'::uuid));
 select tests.throws('nadie inserta empresas directo',
   'insert into public.companies(name) values (''Pirata'')', 'row-level security');
+-- Acme usa el plan Pro (sin límite) en las pruebas de abajo, que crean muchos presupuestos; el límite se prueba con Beta
+select tests.root();
+update public.company_plans set plan = 'pro', plan_expires_at = current_date + 365 where company_id = :'acme'::uuid;
+select tests.login(:'alice');
 
 -- ---------- Aislamiento de clientes ----------
 insert into public.clients (company_id, name, phone) values (:'acme', 'Cliente de Acme', '3585625480');
@@ -342,6 +346,103 @@ select tests.login(:'bob');
 select tests.ok('bob no ve las estadísticas del mes de Acme', (select count(*) from public.quote_stats_month where company_id = :'acme') = 0);
 select tests.anon();
 select tests.throws('anon no lee las estadísticas del mes', 'select * from public.quote_stats_month', 'permission denied');
+
+-- ---------- Planes, solicitudes y límite mensual (migración 006) ----------
+select tests.root();
+insert into public.platform_admins (user_id) values (:'alice');         -- alice es dueña de VOLT en estas pruebas
+
+select tests.login(:'bob');
+select tests.ok('toda empresa nueva nace en Free', (select plan = 'free' and plan_expires_at is null from public.company_plans where company_id = :'beta'::uuid));
+select tests.ok('bob NO es administrador de plataforma', not public.is_platform_admin());
+select tests.throws('la tabla de administradores de plataforma no se lee directo', 'select * from public.platform_admins', 'permission denied');
+select tests.throws('bob no puede escribirse un plan Pro', format('update public.company_plans set plan = ''pro'', plan_expires_at = current_date + 30 where company_id = %L::uuid', :'beta'), 'permission denied');
+select tests.throws('bob no puede activar planes', format('select public.admin_set_plan(%L::uuid, ''pro'', current_date + 30)', :'beta'), 'Sin acceso');
+select tests.throws('bob no puede listar empresas de la plataforma', 'select public.admin_list_companies()', 'Sin acceso');
+select tests.ok('bob ve el plan de SU empresa y no el de otra', (select count(*) from public.company_plans) = 1);
+
+-- límite Free: 10 presupuestos por mes
+select (select count(*) from public.quotes where company_id = :'beta'::uuid) as k \gset
+select count(public.save_quote(:'beta'::uuid, null, '{}'::jsonb, '[]'::jsonb)) from generate_series(1, 10 - :k) \gset
+select tests.ok('Free permite hasta 10 presupuestos en el mes', (select count(*) from public.quotes where company_id = :'beta'::uuid) = 10);
+select tests.throws('el presupuesto 11 del plan Free se rechaza', format('select public.save_quote(%L::uuid, null, ''{}''::jsonb, ''[]''::jsonb)', :'beta'), 'límite de 10');
+select tests.throws('duplicar también cuenta contra el límite', format('select public.duplicate_quote(id) from public.quotes where company_id = %L::uuid limit 1', :'beta'), 'límite de 10');
+update public.quotes set status = 'cancelled' where id = (select id from public.quotes where company_id = :'beta'::uuid limit 1);
+select tests.throws('cancelar un presupuesto no libera cupo', format('select public.save_quote(%L::uuid, null, ''{}''::jsonb, ''[]''::jsonb)', :'beta'), 'límite de 10');
+select tests.ok('mi_plan_usage informa plan, límite y uso', (select (u->>'effective_plan') = 'free' and (u->>'quote_limit')::int = 10 and (u->>'used')::int = 10 from (select public.my_plan_usage(:'beta'::uuid) as u) x));
+select tests.throws('quien no es miembro no ve el uso del plan', format('select public.my_plan_usage(%L::uuid)', :'acme'), 'Sin acceso');
+
+-- solicitud de plan (NO activa nada)
+select tests.throws('el plan Free no se "solicita"', format('select public.request_plan(%L::uuid, ''free'')', :'beta'), 'no válido');
+select tests.throws('no se puede solicitar para una empresa ajena', format('select public.request_plan(%L::uuid, ''pro'')', :'acme'), 'administrador');
+select tests.throws('la referencia larga se rechaza', format('select public.request_plan(%L::uuid, ''pro'', %L)', :'beta', repeat('x', 81)), 'demasiado larga');
+select public.request_plan(:'beta'::uuid, 'emprendedor', '  Operación 123456  ');
+select tests.ok('la solicitud queda pendiente y NO cambia el plan ni el límite',
+  (select plan = 'free' and requested_plan = 'emprendedor' and requested_at is not null and payment_reference = 'Operación 123456' from public.company_plans where company_id = :'beta'::uuid));
+select tests.throws('con solicitud pendiente el límite sigue siendo el de Free', format('select public.save_quote(%L::uuid, null, ''{}''::jsonb, ''[]''::jsonb)', :'beta'), 'límite de 10');
+select tests.ok('la solicitud queda en el registro', exists (select 1 from public.plan_events where company_id = :'beta'::uuid and event = 'requested' and to_plan = 'emprendedor'));
+select public.cancel_plan_request(:'beta'::uuid);
+select tests.ok('se puede cancelar la solicitud', (select requested_plan is null and requested_at is null and payment_reference is null from public.company_plans where company_id = :'beta'::uuid));
+select public.request_plan(:'beta'::uuid, 'pro');
+
+select tests.login(:'eva');
+select tests.ok('un empleado ve el uso del plan de su empresa', (public.my_plan_usage(:'acme'::uuid)->>'effective_plan') = 'pro');
+select tests.throws('un empleado no puede solicitar planes', format('select public.request_plan(%L::uuid, ''pro'')', :'acme'), 'administrador');
+
+select tests.anon();
+select tests.throws('anon no ejecuta request_plan', format('select public.request_plan(%L::uuid, ''pro'')', :'beta'), 'permission denied');
+select tests.throws('anon no ejecuta admin_set_plan', format('select public.admin_set_plan(%L::uuid, ''pro'', current_date + 30)', :'beta'), 'permission denied');
+select tests.throws('anon no lee los planes', 'select * from public.company_plans', 'permission denied');
+
+-- el administrador de plataforma verifica el pago y activa a mano
+select tests.login(:'alice');
+select tests.ok('alice es administradora de plataforma', public.is_platform_admin());
+select tests.ok('el listado de plataforma incluye ambas empresas y la solicitud pendiente de Beta',
+  (select count(*) >= 2 and bool_or(x->>'requested_plan' = 'pro' and x->>'company_name' like 'Beta%') from jsonb_array_elements(public.admin_list_companies()) x));
+select tests.ok('el listado incluye el email del administrador de cada empresa',
+  (select bool_or(coalesce(x->>'admin_emails', '') <> '') from jsonb_array_elements(public.admin_list_companies()) x));
+select tests.throws('un plan pago exige vencimiento', format('select public.admin_set_plan(%L::uuid, ''emprendedor'')', :'beta'), 'vencimiento');
+select tests.throws('el vencimiento no puede ser pasado', format('select public.admin_set_plan(%L::uuid, ''emprendedor'', current_date - 1)', :'beta'), 'vencimiento');
+select tests.throws('empresa inexistente', 'select public.admin_set_plan(gen_random_uuid(), ''pro'', current_date + 30)', 'inexistente');
+select public.admin_set_plan(:'beta'::uuid, 'emprendedor', current_date + 30);
+select tests.ok('activar Emprendedor limpia la solicitud y registra quién y cuándo',
+  (select plan = 'emprendedor' and plan_expires_at = current_date + 30 and requested_plan is null and activated_by = :'alice'::uuid and activated_at is not null
+     from public.company_plans where company_id = :'beta'::uuid));
+select tests.ok('queda auditado como activación', exists (select 1 from public.plan_events where company_id = :'beta'::uuid and event = 'activated' and to_plan = 'emprendedor' and actor_id = :'alice'::uuid));
+
+-- límite Emprendedor: 30
+select tests.login(:'bob');
+select count(public.save_quote(:'beta'::uuid, null, '{}'::jsonb, '[]'::jsonb)) from generate_series(1, 20) \gset
+select tests.ok('Emprendedor llega a 30 presupuestos en el mes', (select count(*) from public.quotes where company_id = :'beta'::uuid) = 30);
+select tests.throws('el presupuesto 31 del plan Emprendedor se rechaza', format('select public.save_quote(%L::uuid, null, ''{}''::jsonb, ''[]''::jsonb)', :'beta'), 'límite de 30');
+
+-- Pro: sin límite
+select tests.login(:'alice');
+select public.admin_set_plan(:'beta'::uuid, 'pro', current_date + 30);
+select tests.login(:'bob');
+select public.save_quote(:'beta'::uuid, null, '{}'::jsonb, '[]'::jsonb);
+select tests.ok('Pro no tiene límite mensual', (select count(*) from public.quotes where company_id = :'beta'::uuid) = 31 and (public.my_plan_usage(:'beta'::uuid)->'quote_limit') = 'null'::jsonb);
+
+-- vencimiento: un plan pago vencido vuelve a comportarse como Free
+select tests.root();
+update public.company_plans set plan_expires_at = current_date - 1 where company_id = :'beta'::uuid;
+select tests.login(:'bob');
+select tests.ok('plan vencido: el plan efectivo es Free', (public.my_plan_usage(:'beta'::uuid)->>'effective_plan') = 'free');
+select tests.throws('plan vencido: se aplica el límite de Free', format('select public.save_quote(%L::uuid, null, ''{}''::jsonb, ''[]''::jsonb)', :'beta'), 'límite de 10');
+select tests.ok('plan vencido: los presupuestos ya creados siguen ahí', (select count(*) from public.quotes where company_id = :'beta'::uuid) = 31);
+
+-- volver a Free y cambiar de plan
+select tests.login(:'alice');
+select public.admin_set_plan(:'beta'::uuid, 'free');
+select tests.ok('volver a Free quita el vencimiento', (select plan = 'free' and plan_expires_at is null from public.company_plans where company_id = :'beta'::uuid));
+select public.admin_set_plan(:'beta'::uuid, 'pro', current_date + 60);
+select public.admin_set_plan(:'beta'::uuid, 'emprendedor', current_date + 60);
+select tests.ok('el registro distingue activación, cambio y vuelta a Free',
+  (select array_agg(event order by id) filter (where event in ('activated', 'changed', 'reverted_free')) = array['activated', 'changed', 'reverted_free', 'activated', 'changed']
+     from public.plan_events where company_id = :'beta'::uuid));
+select tests.login(:'bob');
+select tests.ok('el administrador de una empresa ve el registro de SU empresa', (select count(*) from public.plan_events where company_id = :'beta'::uuid) >= 5);
+select tests.login(:'eva');
+select tests.ok('un empleado no ve el registro de planes', (select count(*) from public.plan_events) = 0);
 
 select tests.root();
 \echo

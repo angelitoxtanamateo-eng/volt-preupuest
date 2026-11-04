@@ -12,6 +12,8 @@ import { QuoteEditorPage } from '../pages/QuoteEditorPage';
 import { QuoteDetailPage } from '../pages/QuoteDetailPage';
 import { SettingsPage } from '../pages/SettingsPage';
 import { CalculatorPage } from '../pages/CalculatorPage';
+import { PlanPage } from '../pages/PlanPage';
+import { AdminPage } from '../pages/AdminPage';
 
 function Private() {
   const { session, loading, company } = useAuth();
@@ -39,6 +41,8 @@ export function App() {
         <Route path="clientes/:id" element={<ClientDetailPage />} />
         <Route path="catalogo" element={<CatalogPage />} />
         <Route path="calculadora" element={<CalculatorPage />} />
+        <Route path="plan" element={<PlanPage />} />
+        <Route path="admin" element={<AdminPage />} />
         <Route path="ajustes" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

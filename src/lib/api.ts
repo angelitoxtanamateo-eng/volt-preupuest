@@ -4,6 +4,7 @@
  */
 import { supabase } from './supabase';
 import type { QuoteStatus } from './status';
+import type { PaidPlan, PlanCode, PlanUsage } from './plans';
 import type {
   CatalogItem, Client, Company, Invitation, QuoteEvent, QuoteItemRow, QuoteMonthStatsRow, QuoteRow, QuoteStatsRow, Role, TeamMember,
 } from '../types';
@@ -100,6 +101,49 @@ export async function logQuoteEvent(quoteId: string, event: 'pdf_generated' | 'w
   // El historial es informativo: si falla no debe impedir abrir WhatsApp ni descargar el PDF.
   await supabase.rpc('log_quote_event', { p_quote: quoteId, p_event: event, p_detail: detail });
 }
+// ---------- Planes y administración de la plataforma ----------
+export async function myPlanUsage(companyId: string): Promise<PlanUsage> {
+  const { data, error } = await supabase.rpc('my_plan_usage', { p_company: companyId });
+  if (error) throw error;
+  return data as PlanUsage;
+}
+export async function requestPlan(companyId: string, plan: PaidPlan, reference: string | null): Promise<void> {
+  const { error } = await supabase.rpc('request_plan', { p_company: companyId, p_plan: plan, p_reference: reference });
+  if (error) throw error;
+}
+export async function cancelPlanRequest(companyId: string): Promise<void> {
+  const { error } = await supabase.rpc('cancel_plan_request', { p_company: companyId });
+  if (error) throw error;
+}
+export async function isPlatformAdmin(): Promise<boolean> {
+  const { data, error } = await supabase.rpc('is_platform_admin');
+  if (error) throw error;
+  return data === true;
+}
+export interface AdminCompanyRow {
+  company_id: string;
+  company_name: string;
+  created_at: string;
+  plan: PlanCode;
+  effective_plan: PlanCode;
+  plan_expires_at: string | null;
+  requested_plan: PaidPlan | null;
+  requested_at: string | null;
+  payment_reference: string | null;
+  activated_at: string | null;
+  used: number;
+  admin_emails: string | null;
+}
+export async function adminListCompanies(): Promise<AdminCompanyRow[]> {
+  const { data, error } = await supabase.rpc('admin_list_companies');
+  if (error) throw error;
+  return (data ?? []) as AdminCompanyRow[];
+}
+export async function adminSetPlan(companyId: string, plan: PlanCode, expires: string | null): Promise<void> {
+  const { error } = await supabase.rpc('admin_set_plan', { p_company: companyId, p_plan: plan, p_expires: expires });
+  if (error) throw error;
+}
+
 export async function quoteStats(companyId: string): Promise<QuoteStatsRow[]> {
   return unwrap(await supabase.from('quote_stats').select('*').eq('company_id', companyId));
 }

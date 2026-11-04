@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { listQuotes, quoteMonthStats, quoteStats, recentClients } from '../lib/api';
+import { listQuotes, myPlanUsage, quoteMonthStats, quoteStats, recentClients } from '../lib/api';
 import { formatMoney } from '../lib/money';
 import { todayIso } from '../lib/dates';
 import { effectiveStatus } from '../lib/status';
+import { PLANS, usageState } from '../lib/plans';
 import { Empty, ErrorBox, PageHeader, Spinner, StatusBadge } from '../components/ui';
 import { useAuth } from '../app/AuthProvider';
 
@@ -30,6 +31,7 @@ export function DashboardPage() {
   const { company } = useAuth();
   const cid = company!.id;
   const stats = useQuery({ queryKey: ['stats', cid], queryFn: () => quoteStats(cid) });
+  const plan = useQuery({ queryKey: ['plan', cid], queryFn: () => myPlanUsage(cid) });
   const month = useQuery({ queryKey: ['stats', 'month', cid], queryFn: () => quoteMonthStats(cid) });
   const quotes = useQuery({ queryKey: ['quotes', cid, 'recent'], queryFn: () => listQuotes(cid, 5) });
   const clients = useQuery({ queryKey: ['clients', cid, 'recent'], queryFn: () => recentClients(cid, 5) });
@@ -60,6 +62,24 @@ export function DashboardPage() {
           </Link>
         ))}
       </div>
+
+      {plan.data && (() => {
+        const st = usageState(plan.data);
+        const name = PLANS[plan.data.effective_plan].name;
+        return (
+          <Link to="/plan" className={`card mb-5 flex items-center justify-between gap-3 p-4 ${st.atLimit ? 'ring-2 ring-red-300' : ''}`}>
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-slate-500">Plan {name}</p>
+              <p className="font-extrabold">
+                {plan.data.quote_limit === null ? `${plan.data.used} presupuestos este mes (sin límite)` : `${plan.data.used} de ${plan.data.quote_limit} presupuestos este mes`}
+              </p>
+              {st.atLimit && <p className="text-sm font-semibold text-red-600">Llegaste al límite. Tocá para ver los planes.</p>}
+              {plan.data.requested_plan && <p className="text-sm font-semibold text-amber-700">Plan {PLANS[plan.data.requested_plan].name}: pendiente de verificación</p>}
+            </div>
+            <span className="shrink-0 rounded-full bg-volt-100 px-3 py-1 text-sm font-bold text-volt-700">Ver planes</span>
+          </Link>
+        );
+      })()}
 
       {month.isLoading ? <Spinner /> : month.error ? <ErrorBox error={month.error} onRetry={() => void month.refetch()} /> : (
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3">

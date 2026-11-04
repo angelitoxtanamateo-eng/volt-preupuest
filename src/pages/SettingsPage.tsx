@@ -1,6 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { createInvitation, deleteInvitation, listCatalog, listClients, listCosts, listInvitations, listQuotes, listTeam, logoUrl, removeLogo, removeMember, setMemberRole, updateCompany, uploadLogo } from '../lib/api';
+import { Link } from 'react-router-dom';
+import { createInvitation, deleteInvitation, isPlatformAdmin, listCatalog, listClients, listCosts, listInvitations, listQuotes, listTeam, logoUrl, removeLogo, removeMember, setMemberRole, updateCompany, uploadLogo } from '../lib/api';
 import { toCsv } from '../lib/csv';
 import { downloadBlob } from '../lib/download';
 import { humanizeError } from '../lib/errors';
@@ -234,9 +235,14 @@ function AccountTab() {
 export function SettingsPage() {
   const [tab, setTab] = useState<Tab>('empresa');
   const tabs: [Tab, string][] = [['empresa', 'Empresa'], ['equipo', 'Equipo'], ['datos', 'Datos'], ['cuenta', 'Mi cuenta']];
+  const platformAdmin = useQuery({ queryKey: ['platform-admin'], queryFn: isPlatformAdmin, staleTime: 5 * 60 * 1000 });
   return (
     <>
       <PageHeader title="Ajustes" />
+      <div className="mb-4 flex flex-wrap gap-2">
+        <Link className="btn btn-accent" to="/plan">Mi plan y suscripción</Link>
+        {platformAdmin.data === true && <Link className="btn btn-primary" to="/admin">Administración VOLT</Link>}
+      </div>
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1" role="tablist">
         {tabs.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-semibold ${tab === k ? 'bg-volt-700 text-white shadow-sm' : 'bg-white text-slate-600 border border-volt-100'}`}>{l}</button>)}
       </div>
