@@ -63,7 +63,7 @@ export function useSpeech(onFinal: (text: string) => void) {
     cb.current(out);
   };
 
-  const begin = useCallback(() => {
+  const begin: () => void = useCallback(() => {
     const Ctor = getCtor();
     if (!Ctor) return;
     const r = new Ctor();
