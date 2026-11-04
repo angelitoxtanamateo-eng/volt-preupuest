@@ -38,7 +38,7 @@ npm run dev
 | `npm run dev` / `build` / `preview` | Desarrollo, compilación y vista previa |
 | `npm run typecheck` | TypeScript estricto |
 | `npm test` | Lógica, parser de dictado, PDF (node:test, sin base) |
-| `npm run test:db` | 97 pruebas de RLS/totales/invitaciones contra PostgreSQL (necesita `psql` y un servidor local) |
+| `npm run test:db` | 140 pruebas de RLS/totales/invitaciones contra PostgreSQL (necesita `psql` y un servidor local) |
 | `npm run test:backup` | Respalda, restaura en una base vacía y compara |
 
 ## Estructura
