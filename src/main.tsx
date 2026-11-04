@@ -41,3 +41,12 @@ createRoot(document.getElementById('root') as HTMLElement).render(
     )}
   </StrictMode>,
 );
+
+// Registro del service worker (solo en producción): permite instalar la app desde el navegador.
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      /* si falla, la app funciona igual como página web */
+    });
+  });
+}
