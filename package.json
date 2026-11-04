@@ -1,0 +1,39 @@
+{
+  "name": "volt-presupuestos",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "VOLT Presupuestos Inteligentes - presupuestos por voz o texto para pequeños negocios de Argentina",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test \"src/**/*.test.ts\"",
+    "test:db": "bash supabase/tests/run.sh",
+    "test:all": "npm run typecheck && npm test && npm run test:db && npm run test:backup",
+    "test:backup": "bash scripts/test-backup.sh"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4",
+    "@tanstack/react-query": "^5.59.0",
+    "pdf-lib": "^1.17.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/node": "^22.7.0",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.2",
+    "tailwindcss": "^4.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.8"
+  }
+}

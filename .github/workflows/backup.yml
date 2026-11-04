@@ -1,0 +1,25 @@
+name: Backup de la base de datos
+on:
+  schedule: [{ cron: "0 6 * * *" }]   # todos los días 06:00 UTC (03:00 en Argentina)
+  workflow_dispatch: {}
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar cliente de PostgreSQL 16
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -qq postgresql-client-16
+      - name: Crear backup cifrado
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}            # cadena de conexión de Supabase (Secrets del repo)
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}  # frase para cifrar: guardala también fuera de GitHub
+        run: ./scripts/backup.sh backups
+      - uses: actions/upload-artifact@v4
+        with:
+          name: volt-backup
+          path: backups/
+          retention-days: 30

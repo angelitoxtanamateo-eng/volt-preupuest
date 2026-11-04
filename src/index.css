@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@theme {
+  --color-volt-950: #071433;
+  --color-volt-900: #0b1f4b;
+  --color-volt-800: #0f2d6b;
+  --color-volt-700: #143a8a;
+  --color-volt-500: #0ea5e9;
+  --color-volt-400: #38bdf8;
+  --color-volt-300: #7dd3fc;
+  --color-volt-100: #e0f2fe;
+  --color-volt-50: #f0f9ff;
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+html, body, #root { min-height: 100%; }
+body { background: #f4f8fc; color: #0b1f4b; font-family: var(--font-sans); -webkit-tap-highlight-color: transparent; }
+
+@layer components {
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-volt-500; min-height: 44px; }
+  .btn-primary { @apply bg-volt-900 text-white hover:bg-volt-800 active:bg-volt-950; }
+  .btn-accent { @apply bg-volt-500 text-white hover:bg-sky-600; }
+  .btn-ghost { @apply bg-white text-volt-900 border border-slate-200 hover:bg-volt-50; }
+  .btn-danger { @apply bg-white text-red-700 border border-red-200 hover:bg-red-50; }
+  .input { @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base text-volt-900 placeholder:text-slate-400 focus:border-volt-500 focus:outline-2 focus:outline-volt-500/30; min-height: 44px; }
+  .card { @apply rounded-2xl bg-white border border-slate-200 shadow-sm; }
+  .label { @apply mb-1 block text-sm font-medium text-slate-700; }
+  .err { @apply mt-1 text-sm text-red-600; }
+}
