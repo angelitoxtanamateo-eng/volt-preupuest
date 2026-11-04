@@ -4,10 +4,14 @@ import { humanizeError } from '../lib/errors';
 
 export function VoltMark({ size = 28 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true">
-      <rect width="64" height="64" rx="14" fill="#0b1f4b" />
-      <path d="M36 8 16 36h14l-4 20 22-30H34z" fill="#38bdf8" />
-    </svg>
+    <img
+      src="/volt-dog-128.png"
+      alt=""
+      width={size}
+      height={size}
+      className="shrink-0 rounded-full bg-linear-to-b from-volt-300 to-volt-400 object-cover shadow-sm ring-2 ring-white"
+      style={{ width: size, height: size }}
+    />
   );
 }
 
@@ -47,7 +51,7 @@ export function PageHeader({ title, subtitle, actions }: { title: string; subtit
   return (
     <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 className="text-2xl font-bold">{title}</h1>
+        <h1 className="text-2xl font-extrabold tracking-tight">{title}</h1>
         {subtitle && <p className="text-slate-500">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
@@ -84,8 +88,8 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-volt-950/50 sm:items-center" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-label={title} className="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-xl sm:max-w-lg sm:rounded-3xl">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-volt-900/30 backdrop-blur-sm sm:items-center" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div role="dialog" aria-modal="true" aria-label={title} className="max-h-[92vh] w-full overflow-y-auto rounded-t-[2rem] bg-white p-6 shadow-2xl sm:max-w-lg sm:rounded-[2rem]">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-bold">{title}</h2>
           <button className="btn btn-ghost min-h-9 px-3" onClick={onClose} aria-label="Cerrar">✕</button>
@@ -124,9 +128,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastCtx.Provider value={push}>
       {children}
-      <div className="pointer-events-none fixed inset-x-0 bottom-20 z-[60] flex flex-col items-center gap-2 px-4 md:bottom-6" aria-live="polite">
+      <div className="pointer-events-none fixed inset-x-0 bottom-28 z-[60] flex flex-col items-center gap-2 px-4 md:bottom-6" aria-live="polite">
         {items.map((t) => (
-          <div key={t.id} className={`pointer-events-auto max-w-md rounded-xl px-4 py-3 text-sm font-medium text-white shadow-lg ${t.kind === 'ok' ? 'bg-volt-900' : 'bg-red-700'}`}>
+          <div key={t.id} className={`pointer-events-auto max-w-md rounded-2xl px-4 py-3 text-sm font-medium text-white shadow-lg shadow-volt-900/10 ${t.kind === 'ok' ? 'bg-volt-800' : 'bg-red-600'}`}>
             {t.msg}
           </div>
         ))}

@@ -8,17 +8,15 @@ import { useAuth } from '../app/AuthProvider';
 
 function Shell({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-volt-900 to-volt-950 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-linear-to-b from-volt-100 via-volt-50 to-white p-4">
       <div className="w-full max-w-md">
-        <div className="mb-6 flex items-center justify-center gap-3 text-white">
-          <VoltMark size={44} />
-          <div className="leading-tight">
-            <p className="text-2xl font-extrabold tracking-wide">VOLT</p>
-            <p className="text-sm text-volt-300">Presupuestos Inteligentes</p>
-          </div>
+        <div className="mb-5 flex flex-col items-center text-center">
+          <VoltMark size={96} />
+          <p className="mt-3 text-3xl font-extrabold tracking-wide text-volt-800">VOLT</p>
+          <p className="text-sm font-medium text-volt-700/80">Presupuestos Inteligentes</p>
         </div>
         <div className="card p-6">
-          <h1 className="text-xl font-bold">{title}</h1>
+          <h1 className="text-xl font-extrabold tracking-tight">{title}</h1>
           {subtitle && <p className="mb-4 text-slate-500">{subtitle}</p>}
           {children}
         </div>

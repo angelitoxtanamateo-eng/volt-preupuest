@@ -237,7 +237,7 @@ export function SettingsPage() {
     <>
       <PageHeader title="Ajustes" />
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1" role="tablist">
-        {tabs.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-semibold ${tab === k ? 'bg-volt-900 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>{l}</button>)}
+        {tabs.map(([k, l]) => <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-semibold ${tab === k ? 'bg-volt-700 text-white shadow-sm' : 'bg-white text-slate-600 border border-volt-100'}`}>{l}</button>)}
       </div>
       {tab === 'empresa' && <CompanyTab />}
       {tab === 'equipo' && <TeamTab />}

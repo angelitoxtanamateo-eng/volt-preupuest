@@ -1,29 +1,39 @@
 @import "tailwindcss";
 
 @theme {
-  --color-volt-950: #071433;
-  --color-volt-900: #0b1f4b;
-  --color-volt-800: #0f2d6b;
-  --color-volt-700: #143a8a;
-  --color-volt-500: #0ea5e9;
-  --color-volt-400: #38bdf8;
-  --color-volt-300: #7dd3fc;
-  --color-volt-100: #e0f2fe;
-  --color-volt-50: #f0f9ff;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --color-volt-950: #0a1b3d;
+  --color-volt-900: #0f2a5e;
+  --color-volt-800: #17397a;
+  --color-volt-700: #1f4d9a;
+  --color-volt-500: #3b9be6;
+  --color-volt-400: #6cb6ef;
+  --color-volt-300: #9ccdf5;
+  --color-volt-100: #e6f2fd;
+  --color-volt-50: #f3f8fd;
+  --font-sans: ui-rounded, "SF Pro Rounded", "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
 html, body, #root { min-height: 100%; }
-body { background: #f4f8fc; color: #0b1f4b; font-family: var(--font-sans); -webkit-tap-highlight-color: transparent; }
+body {
+  background: radial-gradient(1200px 500px at 50% -10%, #e4f1fc 0%, transparent 70%), #f3f8fd;
+  background-attachment: fixed;
+  color: #0f2a5e;
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+@keyframes volt-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+main > * { animation: volt-in .28s ease-out both; }
+@media (prefers-reduced-motion: reduce) { main > * { animation: none; } }
 
 @layer components {
-  .btn { @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-volt-500; min-height: 44px; }
-  .btn-primary { @apply bg-volt-900 text-white hover:bg-volt-800 active:bg-volt-950; }
-  .btn-accent { @apply bg-volt-500 text-white hover:bg-sky-600; }
-  .btn-ghost { @apply bg-white text-volt-900 border border-slate-200 hover:bg-volt-50; }
-  .btn-danger { @apply bg-white text-red-700 border border-red-200 hover:bg-red-50; }
-  .input { @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-base text-volt-900 placeholder:text-slate-400 focus:border-volt-500 focus:outline-2 focus:outline-volt-500/30; min-height: 44px; }
-  .card { @apply rounded-2xl bg-white border border-slate-200 shadow-sm; }
-  .label { @apply mb-1 block text-sm font-medium text-slate-700; }
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-2.5 text-sm font-semibold transition duration-150 active:scale-[.98] disabled:opacity-50 disabled:pointer-events-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-volt-500; min-height: 46px; }
+  .btn-primary { @apply bg-volt-700 text-white shadow-md shadow-volt-700/20 hover:bg-volt-800; }
+  .btn-accent { @apply bg-volt-500 text-white shadow-md shadow-volt-500/25 hover:bg-sky-500; }
+  .btn-ghost { @apply bg-white text-volt-800 border border-volt-100 shadow-sm hover:bg-volt-50; }
+  .btn-danger { @apply bg-white text-red-600 border border-red-100 hover:bg-red-50; }
+  .input { @apply w-full rounded-2xl border border-volt-100 bg-white/80 px-4 py-2.5 text-base text-volt-900 shadow-sm placeholder:text-slate-400 focus:border-volt-400 focus:bg-white focus:outline-2 focus:outline-volt-400/30; min-height: 46px; }
+  .card { @apply rounded-3xl border border-white bg-white shadow-[0_8px_30px_-12px_rgba(31,77,154,0.18)]; }
+  .label { @apply mb-1.5 block text-sm font-semibold text-slate-600; }
   .err { @apply mt-1 text-sm text-red-600; }
 }

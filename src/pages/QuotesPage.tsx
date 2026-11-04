@@ -35,7 +35,7 @@ export function QuotesPage() {
       <input className="input mb-3" placeholder="Buscar por cliente, título o número…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar presupuestos" />
       <div className="mb-4 flex gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Filtrar por estado">
         {FILTERS.map((f) => (
-          <button key={f} role="tab" aria-selected={status === f} onClick={() => setStatus(f)} className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-semibold ${status === f ? 'bg-volt-900 text-white' : 'bg-white text-slate-600 border border-slate-200'}`}>
+          <button key={f} role="tab" aria-selected={status === f} onClick={() => setStatus(f)} className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-semibold ${status === f ? 'bg-volt-700 text-white shadow-sm' : 'bg-white text-slate-600 border border-volt-100'}`}>
             {f === 'all' ? 'Todos' : STATUS_LABEL[f]}
           </button>
         ))}
