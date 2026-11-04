@@ -115,6 +115,26 @@ export async function cancelPlanRequest(companyId: string): Promise<void> {
   const { error } = await supabase.rpc('cancel_plan_request', { p_company: companyId });
   if (error) throw error;
 }
+/** Llama a una Edge Function y devuelve el mensaje de error real del servidor. */
+async function invokeFn<T>(name: string, body: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase.functions.invoke(name, { body });
+  if (data && typeof data === 'object' && 'error' in data && (data as { error?: string }).error) throw new Error((data as { error: string }).error);
+  if (error) {
+    let msg: string | undefined;
+    const ctx = (error as { context?: Response }).context;
+    if (ctx && typeof ctx.json === 'function') { try { msg = (await ctx.json()).error; } catch { /* sin cuerpo */ } }
+    throw new Error(msg ?? 'No se pudo conectar con Mercado Pago. Probá de nuevo.');
+  }
+  return data as T;
+}
+/** Crea el débito automático mensual y devuelve el link de Mercado Pago para autorizarlo. */
+export async function startAutoDebit(companyId: string, plan: PaidPlan, payerEmail: string): Promise<string> {
+  const r = await invokeFn<{ init_point: string }>('mp-subscribe', { company_id: companyId, plan, payer_email: payerEmail });
+  return r.init_point;
+}
+export async function cancelAutoDebit(companyId: string): Promise<void> {
+  await invokeFn('mp-cancel', { company_id: companyId });
+}
 export async function isPlatformAdmin(): Promise<boolean> {
   const { data, error } = await supabase.rpc('is_platform_admin');
   if (error) throw error;

@@ -1,9 +1,10 @@
 /**
  * Planes de VOLT Presupuestos y cobro por Mercado Pago.
  *
- * El link de Mercado Pago es GENERAL: no identifica qué plan compró cada empresa ni le avisa a la app.
- * Por eso la app solo REGISTRA una solicitud (pendiente de verificación) y un administrador de VOLT
- * activa el plan a mano después de comprobar el pago en su cuenta. Nada acá confirma pagos.
+ * Dos formas de pagar:
+ * - Débito automático mensual (recomendado): Mercado Pago avisa al webhook del servidor y el plan
+ *   se activa y renueva solo. La app nunca confirma pagos desde el navegador.
+ * - Link general: la app solo REGISTRA una solicitud y un administrador de VOLT activa el plan a mano.
  *
  * Los límites y precios se repiten en la base (migración 006, que es la que los hace cumplir).
  */
@@ -53,6 +54,9 @@ export interface PlanUsage {
   requested_plan: PaidPlan | null;
   requested_at: string | null;
   payment_reference: string | null;
+  /** Débito automático de Mercado Pago (null si nunca se activó). */
+  mp_status?: 'pending' | 'authorized' | 'paused' | 'cancelled' | null;
+  mp_plan?: PaidPlan | null;
 }
 
 export interface UsageState {

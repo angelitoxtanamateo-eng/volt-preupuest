@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { cancelPlanRequest, myPlanUsage, requestPlan } from '../lib/api';
+import { cancelAutoDebit, cancelPlanRequest, myPlanUsage, requestPlan, startAutoDebit } from '../lib/api';
 import { formatDateAR } from '../lib/dates';
 import { humanizeError } from '../lib/errors';
 import {
-  accountCode, formatPlanPrice, hireLabel, isExpired, MP_LINK, PAID_PLANS, PENDING_MESSAGE, PLANS, usageState, validatePaymentReference,
+  accountCode, formatPlanPrice, isExpired, MP_LINK, PAID_PLANS, PENDING_MESSAGE, PLANS, usageState, validatePaymentReference,
   type PaidPlan, type PlanUsage,
 } from '../lib/plans';
 import { ErrorBox, Field, Modal, PageHeader, Spinner, useToast } from '../components/ui';
@@ -30,7 +30,7 @@ function PendingBox({ usage, code, onVolver }: { usage: PlanUsage; code: string;
 }
 
 export function PlanPage() {
-  const { company, isAdmin } = useAuth();
+  const { company, isAdmin, user } = useAuth();
   const cid = company!.id;
   const code = accountCode(cid);
   const qc = useQueryClient();
@@ -42,6 +42,9 @@ export function PlanPage() {
   const [reference, setReference] = useState('');
   const [refError, setRefError] = useState<string | null>(null);
   const [step, setStep] = useState<'resumen' | 'enviado'>('resumen');
+  const [auto, setAuto] = useState<PaidPlan | null>(null);
+  const [payerEmail, setPayerEmail] = useState('');
+  const returned = new URLSearchParams(window.location.search).get('mp') === 'ok';
 
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ['plan', cid] });
@@ -76,6 +79,35 @@ export function PlanPage() {
     },
     onError: (e) => toast(humanizeError(e), 'error'),
   });
+
+  // Al volver de Mercado Pago esperamos la confirmación del servidor unos segundos
+  useEffect(() => {
+    if (!returned) return;
+    let n = 0;
+    const iv = setInterval(() => { n++; refresh(); if (n >= 10) clearInterval(iv); }, 3000);
+    return () => clearInterval(iv);
+  }, [returned]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const subscribe = useMutation({
+    mutationFn: async () => {
+      const email = payerEmail.trim();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) throw new Error('Ingresá un email válido');
+      return startAutoDebit(cid, auto as PaidPlan, email);
+    },
+    onSuccess: (url) => { window.location.href = url; },
+    onError: (e) => toast(humanizeError(e), 'error'),
+  });
+
+  const stopAuto = useMutation({
+    mutationFn: () => cancelAutoDebit(cid),
+    onSuccess: () => { refresh(); toast('Débito automático cancelado'); },
+    onError: (e) => toast(humanizeError(e), 'error'),
+  });
+
+  function openAuto(plan: PaidPlan) {
+    setAuto(plan);
+    setPayerEmail(user?.email ?? '');
+  }
 
   function open(plan: PaidPlan) {
     setSelected(plan);
@@ -125,6 +157,21 @@ export function PlanPage() {
         </div>
       </section>
 
+      {u.mp_status === 'authorized' ? (
+        <div className="mb-4 flex flex-col gap-3 rounded-3xl border border-emerald-200 bg-emerald-50 p-5 text-emerald-900 sm:flex-row sm:items-center" role="status">
+          <div className="flex-1">
+            <p className="text-lg font-extrabold">Débito automático activo ⚡</p>
+            <p className="text-sm">Plan {u.mp_plan ? PLANS[u.mp_plan].name : ''}: se cobra solo cada mes con Mercado Pago y se renueva sin que hagas nada.</p>
+          </div>
+          {isAdmin && <button className="btn btn-ghost" disabled={stopAuto.isPending} onClick={() => { if (confirm('¿Cancelar el débito automático? Tu plan sigue activo hasta la fecha ya pagada.')) stopAuto.mutate(); }}>{stopAuto.isPending ? 'Cancelando…' : 'Cancelar débito'}</button>}
+        </div>
+      ) : returned && u.mp_status === 'pending' ? (
+        <div className="mb-4 rounded-3xl border border-volt-200 bg-volt-50 p-5" role="status">
+          <p className="font-extrabold">Confirmando con Mercado Pago…</p>
+          <p className="text-sm text-slate-600">Apenas se apruebe el cobro, tu plan se activa solo.</p>
+        </div>
+      ) : null}
+
       {u.requested_plan && (
         <div className="mb-4 space-y-3">
           <PendingBox usage={u} code={code} />
@@ -147,7 +194,18 @@ export function PlanPage() {
                 {p.features.map((f) => <li key={f} className="flex gap-2"><span className="text-volt-500" aria-hidden="true">✓</span>{f}</li>)}
               </ul>
               {code2 !== 'free' && (
-                <button className="btn btn-accent mt-4 w-full" disabled={!isAdmin} onClick={() => open(code2)}>{hireLabel(code2, active)}</button>
+                u.mp_status === 'authorized' && u.mp_plan === code2 ? (
+                  <p className="mt-4 rounded-2xl bg-emerald-50 py-3 text-center text-sm font-bold text-emerald-700">Débito automático activo</p>
+                ) : (
+                  <>
+                    <button className="btn btn-accent mt-4 w-full" disabled={!isAdmin} onClick={() => openAuto(code2)}>
+                      {u.mp_status === 'authorized' ? `Cambiar a ${p.name}` : `Suscribirme — ${formatPlanPrice(code2)}/mes`}
+                    </button>
+                    <button className="mt-2 text-xs text-slate-500 underline disabled:no-underline disabled:opacity-50" disabled={!isAdmin} onClick={() => open(code2)}>
+                      {active ? 'Renovar pagando una vez con link' : 'Prefiero pagar una vez con link'}
+                    </button>
+                  </>
+                )
               )}
             </section>
           );
@@ -155,9 +213,32 @@ export function PlanPage() {
       </div>
       {!isAdmin && <p className="mt-3 text-sm text-slate-500">Solo un administrador de la empresa puede contratar un plan.</p>}
       <p className="mt-4 text-sm text-slate-500">
-        El pago se realiza con Mercado Pago. Tu plan se activa cuando VOLT verifica el pago: no es automático.
+        Con la suscripción, Mercado Pago cobra cada mes y tu plan se activa al instante. Si pagás una vez con el link, se activa cuando VOLT verifica el pago.
         Presupuestos sin valor fiscal; VOLT no emite facturas por este medio.
       </p>
+
+      {auto && (
+        <Modal title={`Suscribirme a ${PLANS[auto].name}`} onClose={() => setAuto(null)}>
+          <div className="space-y-4">
+            <dl className="rounded-2xl bg-volt-50 p-4 text-center">
+              <dt className="text-sm text-slate-500">Débito automático mensual</dt>
+              <dd className="text-3xl font-extrabold">{formatPlanPrice(auto)}<span className="text-base font-medium text-slate-500"> ARS/mes</span></dd>
+            </dl>
+            <ul className="space-y-1.5 text-sm text-slate-600">
+              <li>✓ Tu plan se activa apenas Mercado Pago aprueba el cobro.</li>
+              <li>✓ Se cobra solo cada mes, con tarjeta o dinero en Mercado Pago.</li>
+              <li>✓ Lo cancelás cuando quieras desde esta pantalla.</li>
+            </ul>
+            <Field label="Email de tu cuenta de Mercado Pago" htmlFor="mp-email" hint="Tiene que ser el mismo con el que vas a pagar.">
+              <input id="mp-email" type="email" className="input" value={payerEmail} onChange={(e) => setPayerEmail(e.target.value)} />
+            </Field>
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+              <button className="btn btn-ghost" onClick={() => setAuto(null)}>Cancelar</button>
+              <button className="btn btn-accent" disabled={subscribe.isPending} onClick={() => subscribe.mutate()}>{subscribe.isPending ? 'Conectando…' : 'Continuar en Mercado Pago'}</button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {selected && (
         <Modal title={step === 'resumen' ? `Contratar plan ${PLANS[selected].name}` : 'Solicitud registrada'} onClose={close}>
