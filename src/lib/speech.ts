@@ -41,40 +41,88 @@ export function useSpeech(onFinal: (text: string) => void) {
   const rec = useRef<Recognition | null>(null);
   const cb = useRef(onFinal);
   cb.current = onFinal;
+  const wanted = useRef(false); // el usuario quiere seguir dictando
+  const last = useRef(''); // última frase entregada, para descartar repeticiones
 
-  const stop = useCallback(() => rec.current?.stop(), []);
+  const stop = useCallback(() => {
+    wanted.current = false;
+    rec.current?.stop();
+  }, []);
 
-  const start = useCallback(() => {
+  /** Entrega la frase solo si no repite (o prolonga) lo ya entregado: Chrome en Android a veces re-emite resultados. */
+  const deliver = (raw: string) => {
+    const t = raw.trim();
+    if (!t) return;
+    const prev = last.current;
+    const norm = (x: string) => x.toLowerCase().replace(/\s+/g, ' ').trim();
+    if (prev && norm(t) === norm(prev)) return;
+    let out = t;
+    if (prev && norm(t).startsWith(norm(prev) + ' ')) out = t.slice(prev.length).trim();
+    if (!out) return;
+    last.current = t;
+    cb.current(out);
+  };
+
+  const begin = useCallback(() => {
     const Ctor = getCtor();
     if (!Ctor) return;
-    setError(null);
     const r = new Ctor();
     r.lang = 'es-AR';
-    r.continuous = true;
+    // Una frase por sesión y reinicio automático: evita el texto duplicado del modo continuo en Android.
+    r.continuous = false;
     r.interimResults = true;
     r.onresult = (e) => {
       let live = '';
+      let finalText = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const res = e.results[i];
-        if (res.isFinal) cb.current(res[0].transcript.trim());
+        if (res.isFinal) finalText += (finalText ? ' ' : '') + res[0].transcript;
         else live += res[0].transcript;
       }
+      if (finalText) deliver(finalText);
       setInterim(live);
     };
-    r.onerror = (e) => setError(ERRORS[e.error] ?? `Error de dictado: ${e.error}`);
+    r.onerror = (e) => {
+      if (e.error === 'no-speech' && wanted.current) return; // silencio: seguimos escuchando
+      wanted.current = false;
+      setError(ERRORS[e.error] ?? `Error de dictado: ${e.error}`);
+    };
     r.onend = () => {
-      setListening(false);
       setInterim('');
+      if (wanted.current) {
+        setTimeout(() => {
+          if (wanted.current) begin();
+        }, 150);
+      } else {
+        setListening(false);
+      }
     };
     rec.current = r;
     try {
       r.start();
-      setListening(true);
     } catch {
+      wanted.current = false;
+      setListening(false);
       setError('No se pudo iniciar el dictado.');
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => () => rec.current?.stop(), []);
+  const start = useCallback(() => {
+    if (!getCtor()) return;
+    setError(null);
+    last.current = '';
+    wanted.current = true;
+    setListening(true);
+    begin();
+  }, [begin]);
+
+  useEffect(
+    () => () => {
+      wanted.current = false;
+      rec.current?.stop();
+    },
+    [],
+  );
   return { supported, listening, interim, error, start, stop };
 }
