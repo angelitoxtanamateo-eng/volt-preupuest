@@ -49,3 +49,15 @@ Repetir los pasos 1 y 2 con un proyecto Supabase y un sitio Netlify nuevos (mism
 - El proyecto ya tenía otra app (`events`, `items`, `tasks`, bucket `fotos`): no se tocó. Las migraciones de VOLT solo otorgan o quitan permisos sobre las tablas de VOLT.
 - Pendiente en el panel de Supabase (no se puede hacer por SQL): **Authentication > URL Configuration** (Site URL = tu dominio de Netlify y la URL local `http://localhost:5173` en Redirect URLs) y **Authentication > Passwords > Leaked password protection** (según el plan).
 - Avisos que quedan en el linter y son intencionales: `accept_invitations`, `create_company`, `is_admin`, `is_member`, `log_quote_event` son funciones que la app llama a propósito; todas validan `auth.uid()`.
+
+
+## Planes, cobros y administrador de plataforma
+
+1. Aplicar `supabase/migrations/006_plans_subscriptions.sql`.
+2. Habilitar al dueño de VOLT como administrador de plataforma (una sola vez, en el SQL Editor; reemplazá el email):
+   ```sql
+   insert into public.platform_admins (user_id)
+   select id from auth.users where lower(email) = lower('TU_EMAIL@ejemplo.com');
+   ```
+3. En la app: Ajustes, "Administración VOLT". Ahí se ven las solicitudes, se activa o cambia el plan con fecha de vencimiento y se vuelve a Free.
+4. Verificá cada pago en tu cuenta de Mercado Pago **antes** de activar. El link es general: el monto pagado indica el plan, y el identificador `VOLT-XXXXXXXX` (si el cliente lo escribió en el mensaje) y la referencia ayudan a ubicar a la empresa.

@@ -32,7 +32,7 @@ volt-presupuestos/
 ├─ supabase/
 │  ├─ migrations/001_schema.sql      esquema + RLS + storage
 │  ├─ migrations/002_functions_invitations.sql   RPC atómicas + invitaciones
-│  └─ tests/                         rls.test.sql (97 pruebas), supabase_stub.sql, run.sh
+│  └─ tests/                         rls.test.sql (140 pruebas), supabase_stub.sql, run.sh
 ├─ src/
 │  ├─ lib/        supabase.ts, api.ts, money.ts, phone.ts, whatsapp.ts, validation.ts, errors.ts, csv.ts, pdf/, voice/
 │  ├─ app/        AuthProvider, Layout, rutas
@@ -67,6 +67,19 @@ Decisiones clave:
 `neto = subtotal - descuento + traslado`; `impuesto = round(neto * impuesto% / 100, 2)`; `total = neto + impuesto`; `saldo = total - anticipo`.
 El anticipo es un monto **declarado** por el negocio: la app no cobra ni verifica pagos. No puede superar el total (se verifica al confirmar la transacción).
 Los presupuestos cancelados no cuentan en totales ni estadísticas. `duplicate_quote` copia un presupuesto como borrador con la moneda del original.
+
+### Planes y cobro (migración 006)
+
+| Plan | Precio | Presupuestos por mes |
+|---|---|---|
+| Free | $0 | 10 |
+| Emprendedor | $9.990 ARS/mes | 30 |
+| Pro | $19.990 ARS/mes | Ilimitados |
+
+- El link de Mercado Pago de VOLT (`https://link.mercadopago.com.ar/voltsd`) es **general**: no identifica el plan ni avisa a la app. Por eso la app **solo registra una solicitud** ("pendiente de verificación") y un **administrador de plataforma** activa el plan a mano (`admin_set_plan`) después de comprobar el pago en su cuenta de Mercado Pago. Nunca se activa un plan por abrir el link ni por volver a la app.
+- El límite mensual lo hace cumplir un trigger de la base (cuentan también los cancelados). Un plan pago vencido se trata como Free.
+- Administrador de plataforma = tabla `platform_admins` (sin acceso directo), distinto del administrador de cada empresa. Cada acción queda en `plan_events`.
+- Para **automatizar** la activación hace falta una integración real con la API de Mercado Pago (Checkout Pro o Suscripciones con un `external_reference` por empresa, un Access Token de vendedor guardado como secreto en una Edge Function y un webhook que valide el pago). No se incluye porque requiere credenciales del negocio.
 
 ## 5. Seguridad
 
@@ -112,7 +125,7 @@ Limitaciones que se declaran, no se ocultan:
 
 ## 9. Pruebas
 
-- **Base de datos (PostgreSQL real, `npm run test:db`):** 97 pruebas. Aislamiento entre empresas, empleado sin acceso a costos, FKs compuestas, numeración correlativa sin huecos, totales recalculados aunque el cliente los falsifique, atomicidad de `save_quote`, invitaciones, historial, estadísticas, Storage.
+- **Base de datos (PostgreSQL real, `npm run test:db`):** 140 pruebas. Aislamiento entre empresas, empleado sin acceso a costos, FKs compuestas, numeración correlativa sin huecos, totales recalculados aunque el cliente los falsifique, atomicidad de `save_quote`, invitaciones, historial, estadísticas, Storage.
 - **Lógica (`npm test`):** dinero y totales (idénticos a la base), teléfonos AR, mensaje de WhatsApp, validaciones, CSV, errores, estados, números hablados, parser de dictado, cruce con catálogo, PDF (válido, paginado, resistente a datos hostiles), guardia contra `service_role`.
 - **Backups (`npm run test:backup`):** respalda, restaura en una base vacía y compara datos y políticas RLS; verifica clave incorrecta, falta de `--yes` y archivos alterados.
 - **Pendiente:** pruebas automáticas de componentes React (requieren instalar el stack de UI).
