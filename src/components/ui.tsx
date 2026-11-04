@@ -76,6 +76,7 @@ const BADGE: Record<QuoteStatus, string> = {
   accepted: 'bg-emerald-100 text-emerald-800',
   rejected: 'bg-red-100 text-red-700',
   expired: 'bg-amber-100 text-amber-800',
+  cancelled: 'bg-slate-200 text-slate-500 line-through',
 };
 export function StatusBadge({ status }: { status: QuoteStatus }) {
   return <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${BADGE[status]}`}>{STATUS_LABEL[status]}</span>;

@@ -5,7 +5,7 @@
 import { supabase } from './supabase';
 import type { QuoteStatus } from './status';
 import type {
-  CatalogItem, Client, Company, Invitation, QuoteEvent, QuoteItemRow, QuoteRow, QuoteStatsRow, Role, TeamMember,
+  CatalogItem, Client, Company, Invitation, QuoteEvent, QuoteItemRow, QuoteMonthStatsRow, QuoteRow, QuoteStatsRow, Role, TeamMember,
 } from '../types';
 
 function unwrap<T>(res: { data: T | null; error: unknown }): T {
@@ -83,6 +83,11 @@ export async function saveQuote(companyId: string, id: string | null, quote: Rec
   if (error) throw error;
   return data as string;
 }
+export async function duplicateQuote(id: string): Promise<string> {
+  const { data, error } = await supabase.rpc('duplicate_quote', { p_id: id });
+  if (error) throw error;
+  return data as string;
+}
 export async function setQuoteStatus(id: string, status: QuoteStatus): Promise<void> {
   const { error } = await supabase.from('quotes').update({ status }).eq('id', id);
   if (error) throw error;
@@ -97,6 +102,9 @@ export async function logQuoteEvent(quoteId: string, event: 'pdf_generated' | 'w
 }
 export async function quoteStats(companyId: string): Promise<QuoteStatsRow[]> {
   return unwrap(await supabase.from('quote_stats').select('*').eq('company_id', companyId));
+}
+export async function quoteMonthStats(companyId: string): Promise<QuoteMonthStatsRow[]> {
+  return unwrap(await supabase.from('quote_stats_month').select('*').eq('company_id', companyId));
 }
 
 // ---------- Empresa ----------

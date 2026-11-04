@@ -39,6 +39,8 @@ export function QuoteEditorPage() {
   const [description, setDescription] = useState('');
   const [discountPct, setDiscountPct] = useState('');
   const [travelCost, setTravelCost] = useState('');
+  const [taxPct, setTaxPct] = useState(!editing && Number(company!.default_tax_pct) ? num(Number(company!.default_tax_pct)) : '');
+  const [advance, setAdvance] = useState('');
   const [paymentTerms, setPaymentTerms] = useState(company!.payment_terms);
   const [issueDate, setIssueDate] = useState(today);
   const [validUntil, setValidUntil] = useState(addDays(today, company!.default_validity_days));
@@ -64,6 +66,8 @@ export function QuoteEditorPage() {
     setDescription(quote.description ?? '');
     setDiscountPct(Number(quote.discount_pct) ? num(Number(quote.discount_pct)) : '');
     setTravelCost(Number(quote.travel_cost) ? num(Number(quote.travel_cost)) : '');
+    setTaxPct(Number(quote.tax_pct) ? num(Number(quote.tax_pct)) : '');
+    setAdvance(Number(quote.advance_amount) ? num(Number(quote.advance_amount)) : '');
     setPaymentTerms(quote.payment_terms ?? '');
     setIssueDate(quote.issue_date);
     setValidUntil(quote.valid_until ?? '');
@@ -78,6 +82,8 @@ export function QuoteEditorPage() {
     items.map((i) => ({ quantity: parseNumberInput(i.quantity) ?? 0, unitPrice: parseNumberInput(i.unitPrice) ?? 0 })),
     parseNumberInput(discountPct) ?? 0,
     parseNumberInput(travelCost) ?? 0,
+    parseNumberInput(taxPct) ?? 0,
+    parseNumberInput(advance) ?? 0,
   );
   const money = (n: number) => formatMoney(n, company!.currency);
 
@@ -103,7 +109,7 @@ export function QuoteEditorPage() {
 
   const save = useMutation({
     mutationFn: async () => {
-      const v = validateQuote({ title, clientId, description, discountPct, travelCost, paymentTerms, issueDate, validUntil, items });
+      const v = validateQuote({ title, clientId, description, discountPct, travelCost, taxPct, advance, paymentTerms, issueDate, validUntil, items });
       if (!v.ok) {
         setErrors(v.errors);
         throw new Error('__validation__');
@@ -221,6 +227,10 @@ export function QuoteEditorPage() {
           <Field label="Traslado" error={errors.travelCost} htmlFor="tc"><input id="tc" className="input" inputMode="decimal" value={travelCost} onChange={(e) => setTravelCost(e.target.value)} placeholder="0" /></Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
+          <Field label="Impuestos (%)" error={errors.taxPct} htmlFor="tx" hint="Ej.: 21 para IVA. Se calcula sobre subtotal - descuento + traslado."><input id="tx" className="input" inputMode="decimal" value={taxPct} onChange={(e) => setTaxPct(e.target.value)} placeholder="0" /></Field>
+          <Field label="Anticipo" error={errors.advance} htmlFor="ad" hint="Monto que se pide como seña. No cobra nada: es informativo."><input id="ad" className="input" inputMode="decimal" value={advance} onChange={(e) => setAdvance(e.target.value)} placeholder="0" /></Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
           <Field label="Fecha" error={errors.issueDate} htmlFor="id"><input id="id" className="input" type="date" value={issueDate} onChange={(e) => setIssueDate(e.target.value)} /></Field>
           <Field label="Válido hasta" error={errors.validUntil} htmlFor="vu"><input id="vu" className="input" type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} /></Field>
         </div>
@@ -229,11 +239,18 @@ export function QuoteEditorPage() {
           <div className="flex justify-between"><dt>Subtotal</dt><dd>{money(totals.subtotal)}</dd></div>
           {totals.discountAmount > 0 && <div className="flex justify-between"><dt>Descuento</dt><dd>-{money(totals.discountAmount)}</dd></div>}
           {totals.travelCost > 0 && <div className="flex justify-between"><dt>Traslado</dt><dd>{money(totals.travelCost)}</dd></div>}
+          {totals.taxAmount > 0 && <div className="flex justify-between"><dt>Impuestos ({taxPct.trim() || 0}%)</dt><dd>{money(totals.taxAmount)}</dd></div>}
           <div className="flex justify-between border-t border-volt-300 pt-2 text-xl font-extrabold"><dt>Total</dt><dd>{money(totals.total)}</dd></div>
+          {totals.advance > 0 && (
+            <>
+              <div className="flex justify-between text-slate-600"><dt>Anticipo</dt><dd>-{money(totals.advance)}</dd></div>
+              <div className={`flex justify-between font-bold ${totals.balance < 0 ? 'text-red-600' : ''}`}><dt>Saldo pendiente</dt><dd>{money(totals.balance)}</dd></div>
+            </>
+          )}
         </dl>
       </section>
 
-      <div className="sticky bottom-20 z-20 flex justify-end md:bottom-4">
+      <div className="sticky bottom-28 z-20 flex justify-end md:bottom-4">
         <button className="btn btn-primary shadow-lg" disabled={save.isPending || !loaded} onClick={() => save.mutate()}>{save.isPending ? 'Guardando…' : 'Guardar presupuesto'}</button>
       </div>
     </>

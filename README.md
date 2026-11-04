@@ -16,7 +16,7 @@ Marca VOLT · React + TypeScript · Supabase (Postgres, Auth, Storage) · Netlif
 
 ## Estado y qué falta verificar (leer antes de vender)
 
-Probado de verdad en esta entrega: base de datos y seguridad (69 pruebas sobre PostgreSQL), lógica de negocio, parser de dictado, PDF, backup y restauración.
+Probado de verdad en esta entrega: base de datos y seguridad (97 pruebas sobre PostgreSQL), lógica de negocio, parser de dictado, PDF, backup y restauración.
 
 **Sin compilar ni ejecutar todavía: la interfaz React** (`src/app`, `src/pages`, `src/components`). Se escribió en un entorno sin acceso al registro de npm, así que solo se pudo chequear sintaxis y tipos con las librerías externas simuladas. Es esperable que `npm run build` muestre algún ajuste menor. Tampoco se probó contra un proyecto Supabase real ni en un celular. Primeros pasos: `npm install && npm run typecheck && npm run build`, y recorrer el flujo completo (registro → empresa → cliente → presupuesto por voz → PDF → WhatsApp) antes de entregarlo a un cliente.
 
@@ -38,7 +38,7 @@ npm run dev
 | `npm run dev` / `build` / `preview` | Desarrollo, compilación y vista previa |
 | `npm run typecheck` | TypeScript estricto |
 | `npm test` | Lógica, parser de dictado, PDF (node:test, sin base) |
-| `npm run test:db` | 69 pruebas de RLS/totales/invitaciones contra PostgreSQL (necesita `psql` y un servidor local) |
+| `npm run test:db` | 97 pruebas de RLS/totales/invitaciones contra PostgreSQL (necesita `psql` y un servidor local) |
 | `npm run test:backup` | Respalda, restaura en una base vacía y compara |
 
 ## Estructura

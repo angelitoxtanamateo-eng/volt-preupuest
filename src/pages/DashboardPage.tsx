@@ -1,25 +1,36 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { listQuotes, quoteStats, recentClients } from '../lib/api';
+import { listQuotes, quoteMonthStats, quoteStats, recentClients } from '../lib/api';
 import { formatMoney } from '../lib/money';
 import { todayIso } from '../lib/dates';
 import { effectiveStatus } from '../lib/status';
 import { Empty, ErrorBox, PageHeader, Spinner, StatusBadge } from '../components/ui';
 import { useAuth } from '../app/AuthProvider';
 
-function Kpi({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
+function Kpi({ label, value, accent, hint }: { label: string; value: string | number; accent?: string; hint?: string }) {
   return (
     <div className="card p-4">
-      <p className="text-sm text-slate-500">{label}</p>
-      <p className={`mt-1 text-2xl font-extrabold ${accent ?? ''}`}>{value}</p>
+      <p className="text-sm font-medium text-slate-500">{label}</p>
+      <p className={`mt-1 text-2xl font-extrabold tracking-tight ${accent ?? ''}`}>{value}</p>
+      {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
     </div>
   );
 }
+
+const SHORTCUTS = [
+  { to: '/presupuestos/nuevo?voz=1', label: 'Dictar presupuesto', d: 'M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3ZM5 11a7 7 0 0 0 14 0M12 18v3' },
+  { to: '/presupuestos/nuevo', label: 'Nuevo presupuesto', d: 'M12 5v14M5 12h14' },
+  { to: '/clientes', label: 'Clientes', d: 'M16 19v-1.5a3.5 3.5 0 0 0-3.5-3.5h-3A3.5 3.5 0 0 0 6 17.5V19M11 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z' },
+  { to: '/presupuestos', label: 'Historial', d: 'M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5' },
+  { to: '/calculadora', label: 'Calculadora', d: 'M6 3h12v18H6zM9 7h6M9 12h.01M12 12h.01M15 12h.01M9 16h.01M12 16h.01M15 16h.01' },
+  { to: '/ajustes', label: 'Configuración', d: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z' },
+];
 
 export function DashboardPage() {
   const { company } = useAuth();
   const cid = company!.id;
   const stats = useQuery({ queryKey: ['stats', cid], queryFn: () => quoteStats(cid) });
+  const month = useQuery({ queryKey: ['stats', 'month', cid], queryFn: () => quoteMonthStats(cid) });
   const quotes = useQuery({ queryKey: ['quotes', cid, 'recent'], queryFn: () => listQuotes(cid, 5) });
   const clients = useQuery({ queryKey: ['clients', cid, 'recent'], queryFn: () => recentClients(cid, 5) });
 
@@ -27,32 +38,42 @@ export function DashboardPage() {
   if (stats.error) return <ErrorBox error={stats.error} onRetry={() => void stats.refetch()} />;
 
   const rows = stats.data ?? [];
-  const sum = (k: 'total_quotes' | 'accepted' | 'pending' | 'rejected' | 'expired') => rows.reduce((a, r) => a + Number(r[k]), 0);
   const mine = rows.find((r) => r.currency === company!.currency);
+  const mineMonth = (month.data ?? []).find((r) => r.currency === company!.currency);
   const money = (n: number) => formatMoney(n, company!.currency);
   const otherCurrencies = rows.filter((r) => r.currency !== company!.currency).map((r) => r.currency);
+  const submitted = Number(mineMonth?.submitted ?? 0);
+  const conversion = submitted > 0 ? `${Math.round((Number(mineMonth?.accepted ?? 0) / submitted) * 100)} %` : '—';
+  const monthName = new Date().toLocaleDateString('es-AR', { month: 'long' });
 
   return (
     <>
-      <PageHeader
-        title="Inicio"
-        subtitle="Resumen de tus presupuestos"
-        actions={
-          <>
-            <Link className="btn btn-accent" to="/presupuestos/nuevo?voz=1">🎙 Dictar presupuesto</Link>
-            <Link className="btn btn-primary" to="/presupuestos/nuevo">+ Nuevo</Link>
-          </>
-        }
-      />
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi label="Presupuestos" value={sum('total_quotes')} />
-        <Kpi label="Aceptados" value={sum('accepted')} accent="text-emerald-700" />
-        <Kpi label="Pendientes" value={sum('pending')} accent="text-volt-700" />
-        <Kpi label="Rechazados / vencidos" value={`${sum('rejected')} / ${sum('expired')}`} accent="text-red-700" />
+      <PageHeader title="Inicio" subtitle={`Resumen de ${monthName}`} />
+
+      <div className="mb-5 grid grid-cols-3 gap-2 sm:grid-cols-6">
+        {SHORTCUTS.map((x) => (
+          <Link key={x.to} to={x.to} className="card flex flex-col items-center gap-1.5 p-3 text-center text-xs font-semibold text-volt-800 transition hover:-translate-y-0.5 hover:shadow-md">
+            <span className="grid h-10 w-10 place-items-center rounded-2xl bg-volt-100 text-volt-700">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={x.d} /></svg>
+            </span>
+            {x.label}
+          </Link>
+        ))}
       </div>
+
+      {month.isLoading ? <Spinner /> : month.error ? <ErrorBox error={month.error} onRetry={() => void month.refetch()} /> : (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          <Kpi label="Presupuestos del mes" value={Number(mineMonth?.total_quotes ?? 0)} />
+          <Kpi label="Monto presupuestado" value={money(Number(mineMonth?.total_amount ?? 0))} />
+          <Kpi label="Aceptados" value={Number(mineMonth?.accepted ?? 0)} accent="text-emerald-700" />
+          <Kpi label="Pendientes" value={Number(mineMonth?.pending ?? 0)} accent="text-volt-700" />
+          <Kpi label="Tasa de conversión" value={conversion} hint="Aceptados sobre los enviados del mes" />
+          <Kpi label="Ingresos estimados" value={money(Number(mineMonth?.accepted_amount ?? 0))} accent="text-emerald-700" hint="Suma de los aceptados del mes" />
+        </div>
+      )}
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <Kpi label="Total presupuestado" value={money(Number(mine?.total_amount ?? 0))} />
-        <Kpi label="Total aceptado" value={money(Number(mine?.accepted_amount ?? 0))} accent="text-emerald-700" />
+        <Kpi label="Saldo de presupuestos aceptados" value={money(Number(mine?.accepted_balance ?? 0))} hint="Total menos anticipo declarado. La app no verifica pagos." />
+        <Kpi label="Histórico" value={`${Number(mine?.total_quotes ?? 0)} presupuestos`} hint={`${money(Number(mine?.total_amount ?? 0))} presupuestado · ${Number(mine?.accepted ?? 0)} aceptados · ${Number(mine?.rejected ?? 0)} rechazados · ${Number(mine?.expired ?? 0)} vencidos`} />
       </div>
       {otherCurrencies.length > 0 && (
         <p className="mt-2 text-sm text-slate-500">Los montos muestran solo {company!.currency}. Tenés presupuestos en otra moneda ({otherCurrencies.join(', ')}) que no se suman acá.</p>

@@ -50,11 +50,11 @@ test('parseNumberInput con convención argentina', () => {
 
 test('computeTotals coincide con los valores verificados en la base (59003.00 / 5900.30 / 54602.70)', () => {
   const t = computeTotals([{ quantity: 6, unitPrice: 1500.5 }, { quantity: 2, unitPrice: 25000 }], 10, 1500);
-  assert.deepEqual(t, { subtotal: 59003, discountAmount: 5900.3, travelCost: 1500, total: 54602.7 });
+  assert.deepEqual(t, { subtotal: 59003, discountAmount: 5900.3, travelCost: 1500, net: 54602.7, taxAmount: 0, total: 54602.7, advance: 0, balance: 54602.7 });
 });
 
 test('computeTotals: casos borde', () => {
-  assert.deepEqual(computeTotals([], 0, 0), { subtotal: 0, discountAmount: 0, travelCost: 0, total: 0 });
+  assert.deepEqual(computeTotals([], 0, 0), { subtotal: 0, discountAmount: 0, travelCost: 0, net: 0, taxAmount: 0, total: 0, advance: 0, balance: 0 });
   assert.equal(computeTotals([{ quantity: 1, unitPrice: 100 }], 100, 0).total, 0);
   assert.equal(computeTotals([{ quantity: 3, unitPrice: 0.1 }], 0, 0).total, 0.3);
   assert.equal(computeTotals([{ quantity: 1, unitPrice: 333.33 }], 12.5, 0).discountAmount, 41.67); // 41.66625 -> 41.67

@@ -5,6 +5,7 @@
  */
 import { isIsoDate } from './dates';
 import { parseNumberInput } from './money';
+import { computeTotals } from './quoteMath';
 import { isStorablePhone } from './phone';
 
 export type Errors = Record<string, string>;
@@ -77,6 +78,7 @@ export interface CompanyInput {
   taxId: string;
   currency: string;
   defaultValidityDays: string;
+  defaultTaxPct: string;
   paymentTerms: string;
 }
 
@@ -90,6 +92,13 @@ export function validateCompany(i: CompanyInput) {
   if (!/^[A-Z]{3}$/.test(i.currency)) e.currency = 'Elegí una moneda.';
   const days = Number(i.defaultValidityDays);
   if (!Number.isInteger(days) || days < 1 || days > 365) e.defaultValidityDays = 'Ingresá un número de días entre 1 y 365.';
+  let defaultTax = 0;
+  if (i.defaultTaxPct.trim()) {
+    const t = parseNumberInput(i.defaultTaxPct);
+    if (t === null || t < 0 || t > 100) e.defaultTaxPct = 'El impuesto debe estar entre 0 y 100.';
+    else if (Math.abs(t * 100 - Math.round(t * 100)) > 1e-6) e.defaultTaxPct = 'Usá como máximo 2 decimales.';
+    else defaultTax = t;
+  }
   return done(e, () => ({
     name,
     phone: i.phone.trim() || null,
@@ -98,6 +107,7 @@ export function validateCompany(i: CompanyInput) {
     tax_id: i.taxId.trim() || null,
     currency: i.currency,
     default_validity_days: days,
+    default_tax_pct: defaultTax,
     payment_terms: i.paymentTerms.trim(),
   }));
 }
@@ -164,6 +174,8 @@ export interface QuoteInput {
   description: string;
   discountPct: string;
   travelCost: string;
+  taxPct: string;
+  advance: string;
   paymentTerms: string;
   issueDate: string;
   validUntil: string;
@@ -185,6 +197,14 @@ export function validateQuote(i: QuoteInput) {
     else discount = d;
   }
   const travel = money(i.travelCost, 'travelCost', 'el traslado', e);
+  let tax = 0;
+  if (i.taxPct.trim()) {
+    const t = parseNumberInput(i.taxPct);
+    if (t === null || t < 0 || t > 100) e.taxPct = 'El impuesto debe estar entre 0 y 100.';
+    else if (Math.abs(t * 100 - Math.round(t * 100)) > 1e-6) e.taxPct = 'Usá como máximo 2 decimales.';
+    else tax = t;
+  }
+  const advance = money(i.advance, 'advance', 'el anticipo', e);
 
   if (i.items.length === 0) e.items = 'Agregá al menos un ítem.';
   const items = i.items.map((it, idx) => {
@@ -207,6 +227,11 @@ export function validateQuote(i: QuoteInput) {
     };
   });
 
+  if (!e.advance && advance > 0 && items.length > 0 && !Object.keys(e).some((k) => k.startsWith('items.') || k === 'travelCost' || k === 'discountPct' || k === 'taxPct')) {
+    const t = computeTotals(items.map((it) => ({ quantity: it.quantity, unitPrice: it.unit_price })), discount, travel, tax);
+    if (advance > t.total) e.advance = 'El anticipo no puede superar el total.';
+  }
+
   return done(e, () => ({
     quote: {
       title: i.title.trim() || 'Presupuesto',
@@ -214,6 +239,8 @@ export function validateQuote(i: QuoteInput) {
       description: i.description.trim() || null,
       discount_pct: discount,
       travel_cost: travel,
+      tax_pct: tax,
+      advance_amount: advance,
       payment_terms: i.paymentTerms.trim() || null,
       issue_date: i.issueDate,
       valid_until: i.validUntil || null,

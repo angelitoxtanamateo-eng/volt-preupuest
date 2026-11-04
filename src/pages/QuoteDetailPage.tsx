@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { deleteQuote, getQuoteFull, logoBytes, logQuoteEvent, setQuoteStatus, type QuoteFull } from '../lib/api';
+import { deleteQuote, duplicateQuote, getQuoteFull, logoBytes, logQuoteEvent, setQuoteStatus, type QuoteFull } from '../lib/api';
 import { downloadBlob, safeFilename } from '../lib/download';
 import { formatDateAR, todayIso } from '../lib/dates';
 import { humanizeError } from '../lib/errors';
@@ -34,7 +34,8 @@ async function makePdf(full: QuoteFull, company: Company): Promise<Blob> {
       currency: quote.currency, paymentTerms: quote.payment_terms,
       items: items.map((i) => ({ kind: i.kind, description: i.description, quantity: Number(i.quantity), unit: i.unit, unitPrice: Number(i.unit_price) })),
       subtotal: Number(quote.subtotal), discountPct: Number(quote.discount_pct), discountAmount: Number(quote.discount_amount),
-      travelCost: Number(quote.travel_cost), total: Number(quote.total),
+      travelCost: Number(quote.travel_cost), taxPct: Number(quote.tax_pct), taxAmount: Number(quote.tax_amount),
+      advanceAmount: Number(quote.advance_amount), total: Number(quote.total),
     },
   });
   return new Blob([new Uint8Array(bytes)], { type: 'application/pdf' });
@@ -68,6 +69,16 @@ export function QuoteDetailPage() {
     },
     onError: (e) => toast(humanizeError(e), 'error'),
   });
+  const dup = useMutation({
+    mutationFn: () => duplicateQuote(id),
+    onSuccess: (newId) => {
+      void qc.invalidateQueries({ queryKey: ['quotes'] });
+      void qc.invalidateQueries({ queryKey: ['stats'] });
+      toast('Presupuesto duplicado como borrador');
+      nav(`/presupuestos/${newId}`);
+    },
+    onError: (e) => toast(humanizeError(e), 'error'),
+  });
   const del = useMutation({
     mutationFn: () => deleteQuote(id),
     onSuccess: () => {
@@ -93,7 +104,8 @@ export function QuoteDetailPage() {
     number: quote.number, title: quote.title, companyName: co.name, clientName: client?.name,
     items: items.map((i) => ({ description: i.description, quantity: Number(i.quantity), unit: i.unit, unitPrice: Number(i.unit_price) })),
     subtotal: Number(quote.subtotal), discountPct: Number(quote.discount_pct), discountAmount: Number(quote.discount_amount),
-    travelCost: Number(quote.travel_cost), total: Number(quote.total), currency: quote.currency, validUntil: quote.valid_until, paymentTerms: quote.payment_terms,
+    travelCost: Number(quote.travel_cost), taxPct: Number(quote.tax_pct), taxAmount: Number(quote.tax_amount), advanceAmount: Number(quote.advance_amount),
+    total: Number(quote.total), currency: quote.currency, validUntil: quote.valid_until, paymentTerms: quote.payment_terms,
   });
 
   async function download() {
@@ -141,7 +153,7 @@ export function QuoteDetailPage() {
       <PageHeader
         title={`N° ${formatQuoteNumber(quote.number)} · ${quote.title}`}
         subtitle={`${client?.name ?? 'Sin cliente'} · ${formatDateAR(quote.issue_date)}${quote.valid_until ? ` · válido hasta ${formatDateAR(quote.valid_until)}` : ''}`}
-        actions={<><StatusBadge status={eff} /><Link className="btn btn-ghost" to={`/presupuestos/${id}/editar`}>Editar</Link></>}
+        actions={<><StatusBadge status={eff} /><Link className="btn btn-ghost" to={`/presupuestos/${id}/editar`}>Editar</Link><button className="btn btn-ghost" disabled={dup.isPending} onClick={() => dup.mutate()}>{dup.isPending ? 'Duplicando…' : 'Duplicar'}</button></>}
       />
 
       <section className="card mb-4 space-y-2 p-4">
@@ -172,7 +184,14 @@ export function QuoteDetailPage() {
           <div className="flex justify-between"><dt>Subtotal</dt><dd>{money(Number(quote.subtotal))}</dd></div>
           {Number(quote.discount_amount) > 0 && <div className="flex justify-between"><dt>Descuento ({formatQuantity(Number(quote.discount_pct))}%)</dt><dd>-{money(Number(quote.discount_amount))}</dd></div>}
           {Number(quote.travel_cost) > 0 && <div className="flex justify-between"><dt>Traslado</dt><dd>{money(Number(quote.travel_cost))}</dd></div>}
+          {Number(quote.tax_amount) > 0 && <div className="flex justify-between"><dt>Impuestos ({formatQuantity(Number(quote.tax_pct))}%)</dt><dd>{money(Number(quote.tax_amount))}</dd></div>}
           <div className="flex justify-between border-t border-volt-300 pt-2 text-xl font-extrabold"><dt>Total</dt><dd>{money(Number(quote.total))}</dd></div>
+          {Number(quote.advance_amount) > 0 && (
+            <>
+              <div className="flex justify-between text-slate-600"><dt>Anticipo</dt><dd>-{money(Number(quote.advance_amount))}</dd></div>
+              <div className="flex justify-between font-bold"><dt>Saldo pendiente</dt><dd>{money(Number(quote.total) - Number(quote.advance_amount))}</dd></div>
+            </>
+          )}
         </dl>
       </section>
 

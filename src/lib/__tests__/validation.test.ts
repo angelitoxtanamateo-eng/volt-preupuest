@@ -39,7 +39,7 @@ test('cliente: nombre obligatorio y teléfono según el CHECK de la base', () =>
 });
 
 test('empresa', () => {
-  const base = { name: 'Plomería Pérez', phone: '', email: '', address: '', taxId: '', currency: 'ARS', defaultValidityDays: '15', paymentTerms: '50% anticipo' };
+  const base = { name: 'Plomería Pérez', phone: '', email: '', address: '', taxId: '', currency: 'ARS', defaultValidityDays: '15', defaultTaxPct: '', paymentTerms: '50% anticipo' };
   ok(validateCompany(base));
   const e = errs(validateCompany({ ...base, name: 'P', email: 'x', taxId: '123', currency: 'peso', defaultValidityDays: '0' }));
   assert.ok(e.name && e.email && e.taxId && e.currency && e.defaultValidityDays);
@@ -57,7 +57,7 @@ test('catálogo: precio y costo', () => {
 });
 
 const q: QuoteInput = {
-  title: 'Cañería', clientId: 'c1', description: '', discountPct: '10', travelCost: '1.500', paymentTerms: '', issueDate: '2026-11-03', validUntil: '2026-11-18',
+  title: 'Cañería', clientId: 'c1', description: '', discountPct: '10', travelCost: '1.500', taxPct: '', advance: '', paymentTerms: '', issueDate: '2026-11-03', validUntil: '2026-11-18',
   items: [{ kind: 'material', description: 'Caño', quantity: '6', unit: 'm', unitPrice: '1500,50', catalogItemId: null }],
 };
 

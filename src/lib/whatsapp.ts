@@ -19,6 +19,9 @@ export interface WaQuote {
   discountPct: number;
   discountAmount: number;
   travelCost: number;
+  taxPct?: number;
+  taxAmount?: number;
+  advanceAmount?: number;
   total: number;
   currency: string;
   validUntil: string | null;
@@ -44,10 +47,17 @@ function render(q: WaQuote, maxItems: number): string {
   if (q.items.length > shown.length) lines.push(`… y ${q.items.length - shown.length} ítem(s) más (detalle completo en el PDF).`);
 
   lines.push('');
-  if (q.discountAmount > 0 || q.travelCost > 0) lines.push(`Subtotal: ${money(q.subtotal)}`);
+  const tax = q.taxAmount ?? 0;
+  const advance = q.advanceAmount ?? 0;
+  if (q.discountAmount > 0 || q.travelCost > 0 || tax > 0) lines.push(`Subtotal: ${money(q.subtotal)}`);
   if (q.discountAmount > 0) lines.push(`Descuento (${formatQuantity(q.discountPct)}%): -${money(q.discountAmount)}`);
   if (q.travelCost > 0) lines.push(`Traslado: ${money(q.travelCost)}`);
+  if (tax > 0) lines.push(`Impuestos (${formatQuantity(q.taxPct ?? 0)}%): ${money(tax)}`);
   lines.push(`*TOTAL: ${money(q.total)}*`);
+  if (advance > 0) {
+    lines.push(`Anticipo: ${money(advance)}`);
+    lines.push(`*Saldo: ${money(q.total - advance)}*`);
+  }
 
   if (q.validUntil) {
     lines.push('');

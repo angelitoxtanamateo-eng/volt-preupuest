@@ -32,7 +32,7 @@ volt-presupuestos/
 ├─ supabase/
 │  ├─ migrations/001_schema.sql      esquema + RLS + storage
 │  ├─ migrations/002_functions_invitations.sql   RPC atómicas + invitaciones
-│  └─ tests/                         rls.test.sql (69 pruebas), supabase_stub.sql, run.sh
+│  └─ tests/                         rls.test.sql (97 pruebas), supabase_stub.sql, run.sh
 ├─ src/
 │  ├─ lib/        supabase.ts, api.ts, money.ts, phone.ts, whatsapp.ts, validation.ts, errors.ts, csv.ts, pdf/, voice/
 │  ├─ app/        AuthProvider, Layout, rutas
@@ -61,6 +61,12 @@ Decisiones clave:
 - **Totales a prueba de manipulación:** `quote_items.line_total` es columna generada; triggers recalculan `subtotal`, `discount_amount` y `total`.
 - **Historial:** `quote_events` registra creación y cambios de estado automáticamente; los eventos de PDF/WhatsApp los inserta la función RPC `log_quote_event`. Nadie puede insertar ni borrar eventos desde el cliente.
 - **Dinero:** `numeric(14,2)`. En el cliente se opera en centavos enteros para evitar errores de coma flotante.
+
+### Impuestos, anticipo y saldo (migración 005)
+
+`neto = subtotal - descuento + traslado`; `impuesto = round(neto * impuesto% / 100, 2)`; `total = neto + impuesto`; `saldo = total - anticipo`.
+El anticipo es un monto **declarado** por el negocio: la app no cobra ni verifica pagos. No puede superar el total (se verifica al confirmar la transacción).
+Los presupuestos cancelados no cuentan en totales ni estadísticas. `duplicate_quote` copia un presupuesto como borrador con la moneda del original.
 
 ## 5. Seguridad
 
@@ -106,7 +112,7 @@ Limitaciones que se declaran, no se ocultan:
 
 ## 9. Pruebas
 
-- **Base de datos (PostgreSQL real, `npm run test:db`):** 69 pruebas. Aislamiento entre empresas, empleado sin acceso a costos, FKs compuestas, numeración correlativa sin huecos, totales recalculados aunque el cliente los falsifique, atomicidad de `save_quote`, invitaciones, historial, estadísticas, Storage.
+- **Base de datos (PostgreSQL real, `npm run test:db`):** 97 pruebas. Aislamiento entre empresas, empleado sin acceso a costos, FKs compuestas, numeración correlativa sin huecos, totales recalculados aunque el cliente los falsifique, atomicidad de `save_quote`, invitaciones, historial, estadísticas, Storage.
 - **Lógica (`npm test`):** dinero y totales (idénticos a la base), teléfonos AR, mensaje de WhatsApp, validaciones, CSV, errores, estados, números hablados, parser de dictado, cruce con catálogo, PDF (válido, paginado, resistente a datos hostiles), guardia contra `service_role`.
 - **Backups (`npm run test:backup`):** respalda, restaura en una base vacía y compara datos y políticas RLS; verifica clave incorrecta, falta de `--yes` y archivos alterados.
 - **Pendiente:** pruebas automáticas de componentes React (requieren instalar el stack de UI).

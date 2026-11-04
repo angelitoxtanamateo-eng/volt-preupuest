@@ -1,4 +1,4 @@
-export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired';
+export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'cancelled';
 
 export const STATUS_LABEL: Record<QuoteStatus, string> = {
   draft: 'Borrador',
@@ -6,6 +6,7 @@ export const STATUS_LABEL: Record<QuoteStatus, string> = {
   accepted: 'Aceptado',
   rejected: 'Rechazado',
   expired: 'Vencido',
+  cancelled: 'Cancelado',
 };
 
 /** Un presupuesto "enviado" con la vigencia ya vencida se muestra como vencido (igual criterio que la vista quote_stats). */
@@ -16,9 +17,10 @@ export function effectiveStatus(status: QuoteStatus, validUntil: string | null, 
 
 /** Transiciones que ofrece la interfaz (la base no las restringe: el equipo puede corregir errores). */
 export const STATUS_ACTIONS: Record<QuoteStatus, QuoteStatus[]> = {
-  draft: ['sent', 'accepted', 'rejected'],
-  sent: ['accepted', 'rejected', 'draft'],
-  accepted: ['sent'],
-  rejected: ['sent', 'draft'],
-  expired: ['sent', 'rejected'],
+  draft: ['sent', 'accepted', 'rejected', 'cancelled'],
+  sent: ['accepted', 'rejected', 'draft', 'cancelled'],
+  accepted: ['sent', 'cancelled'],
+  rejected: ['sent', 'draft', 'cancelled'],
+  expired: ['sent', 'rejected', 'cancelled'],
+  cancelled: ['draft'],
 };

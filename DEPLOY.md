@@ -45,7 +45,7 @@ Repetir los pasos 1 y 2 con un proyecto Supabase y un sitio Netlify nuevos (mism
 
 ## Estado de la conexión (proyecto `gnksbrieykexgngpmdiv`)
 
-- Migraciones 001, 002 y 003 **ya aplicadas** a ese proyecto y verificadas con una prueba de humo que se revierte sola (perfiles, totales, historial, aislamiento entre usuarios, `anon` bloqueado).
+- Migraciones 001 a 005 **ya aplicadas** a ese proyecto y verificadas con una prueba de humo que se revierte sola (perfiles, totales, historial, aislamiento entre usuarios, `anon` bloqueado).
 - El proyecto ya tenía otra app (`events`, `items`, `tasks`, bucket `fotos`): no se tocó. Las migraciones de VOLT solo otorgan o quitan permisos sobre las tablas de VOLT.
 - Pendiente en el panel de Supabase (no se puede hacer por SQL): **Authentication > URL Configuration** (Site URL = tu dominio de Netlify y la URL local `http://localhost:5173` en Redirect URLs) y **Authentication > Passwords > Leaked password protection** (según el plan).
 - Avisos que quedan en el linter y son intencionales: `accept_invitations`, `create_company`, `is_admin`, `is_member`, `log_quote_event` son funciones que la app llama a propósito; todas validan `auth.uid()`.

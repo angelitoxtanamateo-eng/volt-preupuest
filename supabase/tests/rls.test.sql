@@ -264,6 +264,85 @@ select tests.ok('objetos de otros buckets con carpetas no-UUID no generan errore
 select tests.login(:'bob');
 select tests.ok('bob no ve el logo de Acme', (select count(*) from storage.objects) = 0);
 
+-- ---------- Impuestos, anticipo, saldo (migración 005) ----------
+select tests.login(:'alice');
+select public.save_quote(:'acme'::uuid, null,
+  '{"title":"Con IVA","discount_pct":10,"travel_cost":500,"tax_pct":21,"advance_amount":1000}'::jsonb,
+  '[{"kind":"material","description":"Caño","quantity":3,"unit_price":1000.50}]'::jsonb) as q_tax \gset
+select tests.ok('subtotal = 3001.50', (select subtotal from public.quotes where id = :'q_tax'::uuid) = 3001.50);
+select tests.ok('descuento = 300.15', (select discount_amount from public.quotes where id = :'q_tax'::uuid) = 300.15);
+select tests.ok('impuesto = 21% sobre (subtotal - descuento + traslado) = 672.28', (select tax_amount from public.quotes where id = :'q_tax'::uuid) = 672.28);
+select tests.ok('total = 3873.63', (select total from public.quotes where id = :'q_tax'::uuid) = 3873.63);
+select tests.ok('anticipo guardado', (select advance_amount from public.quotes where id = :'q_tax'::uuid) = 1000);
+select tests.throws('el porcentaje de impuesto no puede superar 100',
+  format('update public.quotes set tax_pct = 150 where id = %L::uuid', :'q_tax'), 'check');
+select tests.throws('el anticipo no puede ser negativo',
+  format('update public.quotes set advance_amount = -1 where id = %L::uuid', :'q_tax'), 'check');
+
+-- el anticipo no puede superar el total: la verificación es diferida (al confirmar), por eso se prueba fuera de tests.throws
+\set ON_ERROR_STOP off
+select public.save_quote(:'acme'::uuid, null, '{"title":"EXCEDE-1","advance_amount":999999}'::jsonb,
+  '[{"kind":"material","description":"x","quantity":1,"unit_price":100}]'::jsonb);
+update public.quotes set advance_amount = 999999 where id = :'q_tax'::uuid;
+\set ON_ERROR_STOP on
+select tests.ok('anticipo mayor al total: save_quote no guarda nada', (select count(*) from public.quotes where title = 'EXCEDE-1') = 0);
+select tests.ok('anticipo mayor al total: el update directo se revierte', (select advance_amount from public.quotes where id = :'q_tax'::uuid) = 1000);
+
+-- el total cambia al editar y el anticipo se revalida contra el total NUEVO
+select public.save_quote(:'acme'::uuid, :'q_tax'::uuid,
+  '{"title":"Con IVA","discount_pct":0,"travel_cost":0,"tax_pct":0,"advance_amount":3000}'::jsonb,
+  '[{"kind":"material","description":"Caño","quantity":3,"unit_price":1000.50}]'::jsonb);
+select tests.ok('sin impuesto ni descuento el total es el subtotal', (select total from public.quotes where id = :'q_tax'::uuid) = 3001.50);
+
+-- impuesto por defecto de la empresa
+update public.companies set default_tax_pct = 21 where id = :'acme'::uuid;
+select public.save_quote(:'acme'::uuid, null, '{}'::jsonb, '[{"kind":"labor","description":"Jornal","quantity":1,"unit_price":1000}]'::jsonb) as q_def \gset
+select tests.ok('sin tax_pct explícito se usa el de la empresa (21%)', (select tax_pct = 21 and total = 1210 from public.quotes where id = :'q_def'::uuid));
+select public.save_quote(:'acme'::uuid, null, '{"tax_pct":0}'::jsonb, '[{"kind":"labor","description":"Jornal","quantity":1,"unit_price":1000}]'::jsonb) as q_nt \gset
+select tests.ok('tax_pct explícito 0 se respeta', (select tax_pct = 0 and total = 1000 from public.quotes where id = :'q_nt'::uuid));
+
+-- duplicar
+select public.duplicate_quote(:'q_tax'::uuid) as q_dup \gset
+select tests.ok('duplicado: nuevo número correlativo', (select number from public.quotes where id = :'q_dup'::uuid) > (select number from public.quotes where id = :'q_tax'::uuid));
+select tests.ok('duplicado: borrador, sin anticipo, mismo total',
+  (select d.status = 'draft' and d.advance_amount = 0 and d.total = o.total and d.client_id is not distinct from o.client_id
+     from public.quotes d, public.quotes o where d.id = :'q_dup'::uuid and o.id = :'q_tax'::uuid));
+select tests.ok('duplicado: copia los ítems', (select count(*) from public.quote_items where quote_id = :'q_dup'::uuid) = 1);
+select tests.ok('duplicado: el original no cambia', (select advance_amount from public.quotes where id = :'q_tax'::uuid) = 3000);
+select public.duplicate_quote(:'q1'::uuid) as q_dup_ars \gset
+select tests.ok('duplicado: conserva la moneda del original aunque la empresa haya cambiado', (select currency from public.quotes where id = :'q_dup_ars'::uuid) = 'ARS');
+select tests.login(:'eva');
+select tests.ok('un empleado puede duplicar presupuestos de su empresa', public.duplicate_quote(:'q_tax'::uuid) is not null);
+select tests.login(:'bob');
+select tests.throws('bob no puede duplicar presupuestos ajenos', format('select public.duplicate_quote(%L::uuid)', :'q_tax'), 'inexistente');
+select tests.anon();
+select tests.throws('anon no ejecuta duplicate_quote', format('select public.duplicate_quote(%L::uuid)', :'q_tax'), 'permission denied');
+
+-- cancelado
+select tests.login(:'alice');
+select (select cancelled from public.quote_stats where company_id = :'acme' and currency = 'USD') as c0,
+       (select total_quotes from public.quote_stats where company_id = :'acme' and currency = 'USD') as t0,
+       (select total_amount from public.quote_stats where company_id = :'acme' and currency = 'USD') as a0 \gset
+update public.quotes set status = 'cancelled' where id = :'q_dup'::uuid;
+select tests.ok('cancelado: se contabiliza aparte y no cuenta como presupuesto ni como monto',
+  (select cancelled = :c0 + 1 and total_quotes = :t0 - 1 and total_amount = :a0 - 3001.50
+     from public.quote_stats where company_id = :'acme' and currency = 'USD'));
+select tests.ok('cancelado: queda en el historial', exists (select 1 from public.quote_events where quote_id = :'q_dup'::uuid and event = 'status_changed' and detail->>'to' = 'cancelled'));
+
+-- saldo de aceptados (total - anticipo) y estadísticas del mes
+update public.quotes set status = 'accepted' where id = :'q_tax'::uuid;
+select tests.ok('saldo de aceptados = suma de (total - anticipo)',
+  (select accepted_balance from public.quote_stats where company_id = :'acme' and currency = 'USD')
+  = (select sum(total - advance_amount) from public.quotes where company_id = :'acme' and currency = 'USD' and status = 'accepted'));
+select tests.ok('estadísticas del mes: incluyen lo emitido hoy', (select coalesce(sum(total_quotes), 0) from public.quote_stats_month where company_id = :'acme') >= 3);
+select tests.ok('estadísticas del mes: enviados/aceptados/rechazados/vencidos suman lo presentado',
+  (select submitted = accepted + rejected + expired + (select count(*) from public.quotes where company_id = :'acme' and currency = m.currency and status = 'sent' and issue_date >= date_trunc('month', current_date) and (valid_until is null or valid_until >= current_date))
+     from public.quote_stats_month m where company_id = :'acme' and currency = 'USD'));
+select tests.login(:'bob');
+select tests.ok('bob no ve las estadísticas del mes de Acme', (select count(*) from public.quote_stats_month where company_id = :'acme') = 0);
+select tests.anon();
+select tests.throws('anon no lee las estadísticas del mes', 'select * from public.quote_stats_month', 'permission denied');
+
 select tests.root();
 \echo
 \echo '>>> TODAS LAS PRUEBAS SQL PASARON'

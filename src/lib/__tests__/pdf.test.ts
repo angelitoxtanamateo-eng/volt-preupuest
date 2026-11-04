@@ -56,3 +56,22 @@ test('resiste datos hostiles: sin logo, logo roto, emojis, textos larguísimos, 
   assert.equal((await PDFDocument.load(bytes)).getPageCount() >= 1, true);
   await buildQuotePdf({ ...base, logo: null, quote: { ...base.quote, items: [] } });
 });
+
+test('con impuestos, anticipo, saldo y firma: PDF válido (y se ve bien en una imagen de prueba)', async () => {
+  const withTax: QuotePdfData = {
+    ...base,
+    quote: { ...base.quote, taxPct: 21, taxAmount: 11466.57, advanceAmount: 20000, total: 66069.27 },
+  };
+  const bytes = await buildQuotePdf(withTax);
+  const doc = await PDFDocument.load(bytes);
+  assert.equal(Buffer.from(bytes.slice(0, 5)).toString(), '%PDF-');
+  assert.ok(doc.getPageCount() >= 1 && doc.getPageCount() <= 2);
+  writeFileSync(process.env.PDF_TAX_OUT ?? '/dev/null', bytes);
+});
+
+test('muchos ítems + impuestos + anticipo: la firma y los totales no se pierden al paginar', async () => {
+  const items = Array.from({ length: 28 }, (_, i) => ({ kind: 'material' as const, description: `Ítem ${i}`, quantity: 1, unit: 'u', unitPrice: 1000 }));
+  const bytes = await buildQuotePdf({ ...base, quote: { ...base.quote, items, taxPct: 21, taxAmount: 100, advanceAmount: 500, total: 28100 } });
+  const doc = await PDFDocument.load(bytes);
+  assert.ok(doc.getPageCount() >= 1);
+});

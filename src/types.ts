@@ -14,6 +14,7 @@ export interface Company {
   currency: string;
   default_validity_days: number;
   payment_terms: string;
+  default_tax_pct: number;
 }
 
 export interface Membership {
@@ -55,6 +56,9 @@ export interface QuoteRow {
   discount_pct: number;
   discount_amount: number;
   travel_cost: number;
+  tax_pct: number;
+  tax_amount: number;
+  advance_amount: number;
   total: number;
   payment_terms: string | null;
   issue_date: string;
@@ -91,8 +95,27 @@ export interface QuoteStatsRow {
   pending: number;
   rejected: number;
   expired: number;
+  cancelled: number;
   total_amount: number;
   accepted_amount: number;
+  /** Suma de (total - anticipo) de los aceptados: saldo declarado, no pagos verificados. */
+  accepted_balance: number;
+}
+
+/** Estadísticas del mes en curso (por fecha de emisión). */
+export interface QuoteMonthStatsRow {
+  company_id: string;
+  currency: string;
+  total_quotes: number;
+  accepted: number;
+  pending: number;
+  rejected: number;
+  expired: number;
+  /** Enviados + aceptados + rechazados + vencidos: la base para la tasa de conversión. */
+  submitted: number;
+  total_amount: number;
+  accepted_amount: number;
+  accepted_balance: number;
 }
 
 export interface Invitation {

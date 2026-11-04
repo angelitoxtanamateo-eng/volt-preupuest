@@ -32,6 +32,9 @@ export interface QuotePdfData {
     discountPct: number;
     discountAmount: number;
     travelCost: number;
+    taxPct?: number;
+    taxAmount?: number;
+    advanceAmount?: number;
     total: number;
   };
 }
@@ -223,7 +226,7 @@ export async function buildQuotePdf(data: QuotePdfData): Promise<Uint8Array> {
   }
 
   // ---------- Totales ----------
-  ensure(110);
+  ensure(170);
   const tx = W - M - 210;
   const row = (label: string, value: string) => {
     text(label, tx, y, 10, font, GRAY);
@@ -233,11 +236,20 @@ export async function buildQuotePdf(data: QuotePdfData): Promise<Uint8Array> {
   row('Subtotal', money(data.quote.subtotal));
   if (data.quote.discountAmount > 0) row(`Descuento (${formatQuantity(data.quote.discountPct)}%)`, `-${money(data.quote.discountAmount)}`);
   if (data.quote.travelCost > 0) row('Traslado', money(data.quote.travelCost));
+  if ((data.quote.taxAmount ?? 0) > 0) row(`Impuestos (${formatQuantity(data.quote.taxPct ?? 0)}%)`, money(data.quote.taxAmount ?? 0));
   y -= 18; // deja aire para que la caja del total no pise la última fila
   page.drawRectangle({ x: tx - 8, y: y - 8, width: 218 + 8, height: 28, color: NAVY });
   text('TOTAL', tx, y + 2, 12, bold, rgb(1, 1, 1));
   right(money(data.quote.total), colTotal - 6, y + 2, 13, bold, rgb(1, 1, 1));
-  y -= 40;
+  y -= 28;
+  const advance = data.quote.advanceAmount ?? 0;
+  if (advance > 0) {
+    row('Anticipo', `-${money(advance)}`);
+    text('Saldo pendiente', tx, y, 10.5, bold, NAVY);
+    right(money(data.quote.total - advance), colTotal - 6, y, 11, bold, NAVY);
+    y -= 22;
+  }
+  y -= 12;
 
   // ---------- Condiciones ----------
   if (data.quote.paymentTerms?.trim()) {
@@ -250,6 +262,16 @@ export async function buildQuotePdf(data: QuotePdfData): Promise<Uint8Array> {
       y -= 12;
     }
   }
+
+  // ---------- Espacio para firma ----------
+  ensure(90);
+  y -= 34;
+  const sigW = (W - 2 * M - 40) / 2;
+  page.drawLine({ start: { x: M, y }, end: { x: M + sigW, y }, thickness: 0.6, color: GRAY });
+  page.drawLine({ start: { x: M + sigW + 40, y }, end: { x: W - M, y }, thickness: 0.6, color: GRAY });
+  text('Firma del cliente (conformidad)', M, y - 12, 8.5, font, GRAY);
+  text('Aclaración y fecha', M + sigW + 40, y - 12, 8.5, font, GRAY);
+  y -= 30;
 
   // ---------- Pie en todas las páginas ----------
   pages.forEach((p, i) => {

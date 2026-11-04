@@ -20,7 +20,7 @@ function CompanyTab() {
   const toast = useToast();
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [f, setF] = useState({ name: c.name, phone: c.phone ?? '', email: c.email ?? '', address: c.address ?? '', taxId: c.tax_id ?? '', currency: c.currency, defaultValidityDays: String(c.default_validity_days), paymentTerms: c.payment_terms });
+  const [f, setF] = useState({ name: c.name, phone: c.phone ?? '', email: c.email ?? '', address: c.address ?? '', taxId: c.tax_id ?? '', currency: c.currency, defaultValidityDays: String(c.default_validity_days), defaultTaxPct: Number(c.default_tax_pct) ? String(Number(c.default_tax_pct)).replace('.', ',') : '', paymentTerms: c.payment_terms });
   const [errors, setErrors] = useState<Errors>({});
   const logo = useQuery({ queryKey: ['logo', c.id, c.logo_path], queryFn: () => logoUrl(c.logo_path) });
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => setF((s) => ({ ...s, [k]: e.target.value }));
@@ -79,6 +79,7 @@ function CompanyTab() {
             </Field>
             <Field label="Vigencia por defecto (días)" error={errors.defaultValidityDays} htmlFor="s-v"><input id="s-v" className="input" inputMode="numeric" value={f.defaultValidityDays} onChange={set('defaultValidityDays')} /></Field>
           </div>
+          <Field label="Impuesto por defecto (%)" error={errors.defaultTaxPct} hint="Se propone en cada presupuesto nuevo (ej.: 21 para IVA). Dejalo vacío si no aplicás impuestos." htmlFor="s-tx"><input id="s-tx" className="input" inputMode="decimal" value={f.defaultTaxPct} onChange={set('defaultTaxPct')} placeholder="0" /></Field>
           <Field label="Condiciones de pago por defecto" htmlFor="s-pt"><textarea id="s-pt" className="input" rows={2} value={f.paymentTerms} onChange={set('paymentTerms')} /></Field>
         </fieldset>
         {isAdmin && <button className="btn btn-primary" disabled={save.isPending}>{save.isPending ? 'Guardando…' : 'Guardar cambios'}</button>}

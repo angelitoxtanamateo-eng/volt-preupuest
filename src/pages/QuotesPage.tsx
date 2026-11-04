@@ -8,7 +8,7 @@ import { effectiveStatus, STATUS_LABEL, type QuoteStatus } from '../lib/status';
 import { Empty, ErrorBox, PageHeader, Spinner, StatusBadge } from '../components/ui';
 import { useAuth } from '../app/AuthProvider';
 
-const FILTERS: (QuoteStatus | 'all')[] = ['all', 'draft', 'sent', 'accepted', 'rejected', 'expired'];
+const FILTERS: (QuoteStatus | 'all')[] = ['all', 'draft', 'sent', 'accepted', 'rejected', 'expired', 'cancelled'];
 
 export function QuotesPage() {
   const { company } = useAuth();
