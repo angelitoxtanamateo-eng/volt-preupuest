@@ -28,7 +28,7 @@ cp .env.example .env.local      # completar con TU proyecto Supabase
 npm run dev
 ```
 
-1. Creá un proyecto en Supabase y aplicá `supabase/migrations/001_schema.sql`, `002_functions_invitations.sql` y `003_hardening.sql` (SQL Editor, en orden). Detalle en [DEPLOY.md](DEPLOY.md).
+1. Creá un proyecto en Supabase y aplicá `supabase/migrations/001` a `005` en orden, cada archivo en su propia ejecución (SQL Editor). Detalle en [DEPLOY.md](DEPLOY.md).
 2. En `.env.local`: `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` (clave **anon**). La app se niega a arrancar si detecta una clave `service_role`.
 
 ## Comandos
